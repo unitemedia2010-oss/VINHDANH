@@ -346,7 +346,7 @@ input[type="range"]{
   gap:10px;
   color:#e9edf8;
   background:rgba(255,255,255,.05);
-  border:1px solid var(--line);
+  border:1px solid var(--chip-border, var(--line));
   box-shadow:none;
 }
 .background-chip span{
@@ -357,7 +357,7 @@ input[type="range"]{
   place-items:center;
   flex:0 0 auto;
   color:#17100a;
-  background:linear-gradient(135deg,#fff0b8,#d7a33a);
+  background:linear-gradient(135deg,var(--chip-accent-soft,#fff0b8),var(--chip-accent,#d7a33a));
   font-size:11px;
   font-weight:900;
 }
@@ -381,11 +381,12 @@ input[type="range"]{
   overflow-wrap:anywhere;
   font-size:13px;
   line-height:1.15;
+  color:var(--chip-title-color,#e9edf8);
 }
 .background-chip.active{
   color:#17100a;
-  border-color:rgba(255,228,154,.78);
-  background:linear-gradient(135deg,#fff0b3,#e9bd55 58%,#bf872a);
+  border-color:color-mix(in srgb, var(--chip-accent,#e9bd55) 65%, white 35%);
+  background:linear-gradient(135deg,var(--chip-accent-soft,#fff0b3),var(--chip-accent,#e9bd55) 58%,var(--chip-accent-deep,#bf872a));
 }
 .background-chip.active span{background:rgba(20,14,6,.14);color:#17100a}
 .background-chip.active small{color:rgba(23,16,10,.72)}
@@ -394,12 +395,12 @@ input[type="range"]{
 .background-variant-card{
   padding:12px;
   border-radius:18px;
-  border:1px solid var(--line);
+  border:1px solid var(--chip-border, var(--line));
   background:rgba(255,255,255,.035);
 }
 .background-variant-card.selected{
-  border-color:rgba(233,189,85,.58);
-  background:rgba(233,189,85,.07);
+  border-color:color-mix(in srgb, var(--chip-accent,#e9bd55) 68%, white 32%);
+  background:color-mix(in srgb, var(--chip-accent,#e9bd55) 12%, rgba(255,255,255,.02));
 }
 .background-variant-top,.background-link-row{
   display:flex;

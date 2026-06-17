@@ -20,18 +20,18 @@ const DEFAULT_TEMPLATE = {
     foreground: "assets/unite-foreground.png"
   },
   backgroundVariants: [
-    { id: "tinhhoa", label: "TINHHOA", src: "assets/unite-bg-clean.png", isDefault: true },
-    { id: "kitai", label: "KITAI", src: "assets/unite-bg.png" },
-    { id: "tienphong", label: "TIENPHONG", src: "assets/unite-bg-clean.png" },
-    { id: "khaipha", label: "KHAIPHA", src: "assets/unite-bg-clean.png" },
-    { id: "bucpha", label: "BUCPHA", src: "assets/unite-bg-clean.png" }
+    { id: "tinhhoa", label: "TINH HOA", src: "assets/unite-bg-clean.png", isDefault: true },
+    { id: "kitai", label: "KÌ TÀI", src: "assets/unite-bg.png" },
+    { id: "tienphong", label: "TIÊN PHONG", src: "assets/unite-bg-clean.png" },
+    { id: "khaipha", label: "KHAI PHÁ", src: "assets/unite-bg-clean.png" },
+    { id: "bucpha", label: "BỨC PHÁ", src: "assets/unite-bg-clean.png" }
   ],
   foregroundVariants: [
-    { id: "tinhhoa", label: "TINHHOA", src: "assets/unite-foreground.png", isDefault: true },
-    { id: "kitai", label: "KITAI", src: "assets/unite-foreground.png" },
-    { id: "tienphong", label: "TIENPHONG", src: "assets/unite-foreground.png" },
-    { id: "khaipha", label: "KHAIPHA", src: "assets/unite-foreground.png" },
-    { id: "bucpha", label: "BUCPHA", src: "assets/unite-foreground.png" }
+    { id: "tinhhoa", label: "TINH HOA", src: "assets/unite-foreground.png", isDefault: true },
+    { id: "kitai", label: "KÌ TÀI", src: "assets/unite-foreground.png" },
+    { id: "tienphong", label: "TIÊN PHONG", src: "assets/unite-foreground.png" },
+    { id: "khaipha", label: "KHAI PHÁ", src: "assets/unite-foreground.png" },
+    { id: "bucpha", label: "BỨC PHÁ", src: "assets/unite-foreground.png" }
   ],
   fonts: [],
   personSlot: {
@@ -46,7 +46,8 @@ const DEFAULT_TEMPLATE = {
     {
       key: "awardTitle",
       label: "Tên giải lớn",
-      defaultValue: "BEST SELLER",
+      defaultValue: "CỤM TINH HOA",
+      dynamicDefault: "cluster_title",
       x: 615,
       y: 280,
       width: 880,
@@ -66,7 +67,8 @@ const DEFAULT_TEMPLATE = {
     {
       key: "month",
       label: "Tháng / năm",
-      defaultValue: "THÁNG 5/2026",
+      defaultValue: "THÁNG 6/2026",
+      dynamicDefault: "current_month",
       x: 615,
       y: 380,
       width: 520,
@@ -85,7 +87,7 @@ const DEFAULT_TEMPLATE = {
     {
       key: "name",
       label: "Tên nhân sự",
-      defaultValue: "MR.BEAR",
+      defaultValue: "MR/MS.NAME",
       x: 615,
       y: 1196,
       width: 620,
@@ -104,7 +106,7 @@ const DEFAULT_TEMPLATE = {
     {
       key: "team",
       label: "Team",
-      defaultValue: "TEAM T - REX",
+      defaultValue: "TEAM NAME",
       x: 615,
       y: 1260,
       width: 640,
@@ -122,7 +124,7 @@ const DEFAULT_TEMPLATE = {
     {
       key: "subline",
       label: "Dòng mô tả phụ",
-      defaultValue: "THE BEST SELLER IN MAY 2026",
+      defaultValue: "CHÚC MỪNG BẠN CHỐT THÀNH CÔNG",
       x: 615,
       y: 1378,
       width: 760,
@@ -134,6 +136,28 @@ const DEFAULT_TEMPLATE = {
       align: "center",
       shadowColor: "rgba(255,225,120,0.35)",
       shadowBlur: 4,
+      uppercase: true,
+      draggable: true,
+      snapToCenter: true
+    },
+    {
+      key: "campaignLine",
+      label: "Vùng chữ mới",
+      defaultValue: "DỰ ÁN ABC DEF GHK",
+      x: 614.5,
+      y: 1463,
+      width: 760,
+      fontFamily: "Montserrat, Arial, sans-serif",
+      fontSize: 29,
+      fontWeight: "700",
+      color: "#a9f400",
+      gradientColor2: "#97b121",
+      gradientAngle: 23,
+      fillType: "solid",
+      align: "center",
+      shadowColor: "rgba(0,0,0,0.45)",
+      shadowBlur: 3,
+      letterSpacing: 0,
       uppercase: true,
       draggable: true,
       snapToCenter: true
@@ -154,6 +178,44 @@ const ctx = canvas.getContext("2d");
 
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const routeOptions = getRouteOptions();
+const VARIANT_META = {
+  tinhhoa: {
+    label: "TINH HOA",
+    clusterTitle: "CỤM TINH HOA",
+    accent: "#df3b2f",
+    accentSoft: "#ffd6d1",
+    accentDeep: "#8f120c"
+  },
+  kitai: {
+    label: "KÌ TÀI",
+    clusterTitle: "CỤM KÌ TÀI",
+    accent: "#e0b13f",
+    accentSoft: "#fff1bd",
+    accentDeep: "#9b6b05"
+  },
+  tienphong: {
+    label: "TIÊN PHONG",
+    clusterTitle: "CỤM TIÊN PHONG",
+    accent: "#3d7cff",
+    accentSoft: "#dce8ff",
+    accentDeep: "#12338d"
+  },
+  khaipha: {
+    label: "KHAI PHÁ",
+    clusterTitle: "CỤM KHAI PHÁ",
+    accent: "#7b46ff",
+    accentSoft: "#eadfff",
+    accentDeep: "#421998"
+  },
+  bucpha: {
+    label: "BỨC PHÁ",
+    clusterTitle: "CỤM BỨC PHÁ",
+    accent: "#47b83e",
+    accentSoft: "#daf6d7",
+    accentDeep: "#1d7420"
+  }
+};
+const CORE_TEXT_KEYS = ["awardTitle", "month", "name", "team", "subline", "campaignLine"];
 
 let template = structuredClone(DEFAULT_TEMPLATE);
 let bgImg = null;
@@ -271,6 +333,7 @@ function normalizeTemplate(t){
   t.templateName ||= t.templateId;
   t.personSlot ||= { x: 335, y: 420, width: 560, height: 650, fitMode: "head_to_belly", bottomSafeY: 1070 };
   t.textFields ||= [];
+  ensureRequiredDefaultFields(t);
   t.textFields.forEach(field => {
     if(field.draggable === undefined) field.draggable = true;
     if(field.snapToCenter === undefined) field.snapToCenter = field.align !== "left" && field.align !== "right";
@@ -436,6 +499,109 @@ function applyActiveVariantLayout({ rebuild = true } = {}){
   }
 }
 
+function formatCurrentMonthLabel(date = new Date()){
+  return `THÁNG ${date.getMonth() + 1}/${date.getFullYear()}`;
+}
+
+function getVariantMeta(id = selectedBackgroundId){
+  const safeId = normalizeBackgroundId(id || selectedBackgroundId || getDefaultBackgroundVariant(template)?.id || "tinhhoa");
+  return VARIANT_META[safeId] || {
+    label: (safeId || "MÀU").toUpperCase(),
+    clusterTitle: `CỤM ${(safeId || "MÀU").toUpperCase()}`,
+    accent: "#e9bd55",
+    accentSoft: "#fff0b3",
+    accentDeep: "#8e6519"
+  };
+}
+
+function getResolvedFieldDefault(field, backgroundId = selectedBackgroundId){
+  const meta = getVariantMeta(backgroundId);
+  if(field?.dynamicDefault === "cluster_title" || field?.key === "awardTitle") return meta.clusterTitle;
+  if(field?.dynamicDefault === "current_month" || field?.key === "month") return formatCurrentMonthLabel();
+  if(field?.key === "name") return field?.defaultValue || "MR/MS.NAME";
+  if(field?.key === "team") return field?.defaultValue || "TEAM NAME";
+  if(field?.key === "subline") return field?.defaultValue || "CHÚC MỪNG BẠN CHỐT THÀNH CÔNG";
+  if(field?.key === "campaignLine") return field?.defaultValue || "DỰ ÁN ABC DEF GHK";
+  return field?.defaultValue || "";
+}
+
+function hasOwnTextValue(key){
+  return Object.prototype.hasOwnProperty.call(textValues, key);
+}
+
+function getFieldValue(field){
+  if(!field) return "";
+  return hasOwnTextValue(field.key) ? textValues[field.key] : getResolvedFieldDefault(field);
+}
+
+function applyVariantThemeVars(el, variant){
+  if(!el || !variant) return;
+  const meta = getVariantMeta(variant.id);
+  el.style.setProperty('--chip-accent', meta.accent);
+  el.style.setProperty('--chip-accent-soft', meta.accentSoft);
+  el.style.setProperty('--chip-accent-deep', meta.accentDeep);
+  el.style.setProperty('--chip-title-color', meta.accentSoft);
+}
+
+function ensureRequiredDefaultFields(t){
+  const defaultFields = DEFAULT_TEMPLATE.textFields.map(field => structuredClone(field));
+  const existing = new Map((t.textFields || []).map(field => [field.key, field]));
+  defaultFields.forEach((field) => {
+    if(!existing.has(field.key)) {
+      t.textFields.push(field);
+      return;
+    }
+    const current = existing.get(field.key);
+    if(field.key === 'awardTitle' && (!current.defaultValue || current.defaultValue === 'BEST SELLER' || /^CỤM\s/.test(current.defaultValue))) {
+      current.defaultValue = field.defaultValue;
+      current.dynamicDefault = 'cluster_title';
+    }
+    if(field.key === 'month' && (!current.defaultValue || /^THÁNG\s+\d{1,2}\/\d{4}$/i.test(current.defaultValue))) {
+      current.defaultValue = field.defaultValue;
+      current.dynamicDefault = 'current_month';
+    }
+    if(field.key === 'name' && (!current.defaultValue || current.defaultValue === 'MR.BEAR')) current.defaultValue = field.defaultValue;
+    if(field.key === 'team' && (!current.defaultValue || current.defaultValue === 'TEAM T - REX')) current.defaultValue = field.defaultValue;
+    if(field.key === 'subline' && (!current.defaultValue || current.defaultValue === 'THE BEST SELLER IN MAY 2026')) current.defaultValue = field.defaultValue;
+    if(field.key === 'campaignLine') {
+      current.label ||= field.label;
+      current.defaultValue ||= field.defaultValue;
+      current.fontFamily ||= field.fontFamily;
+      current.fontSize ||= field.fontSize;
+      current.fontWeight ||= field.fontWeight;
+      current.color ||= field.color;
+      current.gradientColor2 ||= field.gradientColor2;
+      current.gradientAngle ??= field.gradientAngle;
+      current.fillType ||= field.fillType;
+      current.align ||= field.align;
+      current.width ||= field.width;
+      current.x ??= field.x;
+      current.y ??= field.y;
+      current.uppercase ??= field.uppercase;
+      current.snapToCenter ??= field.snapToCenter;
+      current.draggable ??= field.draggable;
+      current.shadowColor ||= field.shadowColor;
+      current.shadowBlur ??= field.shadowBlur;
+      current.letterSpacing ??= field.letterSpacing;
+    }
+  });
+
+  const variantDefaults = DEFAULT_TEMPLATE.backgroundVariants;
+  const bgMap = new Map(variantDefaults.map(item => [item.id, item]));
+  (t.backgroundVariants || []).forEach((variant) => {
+    const meta = getVariantMeta(variant.id);
+    variant.label = meta.label;
+    const match = bgMap.get(variant.id);
+    if(match?.isDefault) variant.isDefault = true;
+  });
+  (t.foregroundVariants || []).forEach((variant) => {
+    const meta = getVariantMeta(variant.id);
+    variant.label = meta.label;
+    const match = bgMap.get(variant.id);
+    if(match?.isDefault) variant.isDefault = true;
+  });
+}
+
 async function applyCurrentTemplate(){
   resetLeaderSessionLayout({ clearTemp:true, silent:true });
   setupCanvas();
@@ -450,11 +616,12 @@ async function applyCurrentTemplate(){
 
 function ensureTextValues(){
   const next = {};
-  template.textFields.forEach(field => {
-    next[field.key] = textValues[field.key] ?? field.defaultValue ?? "";
+  Object.keys(textValues || {}).forEach((key) => {
+    next[key] = textValues[key];
   });
   textValues = next;
 }
+
 
 async function loadFonts(){
   if(document.fonts?.ready){
@@ -984,13 +1151,12 @@ function buildForms(){
   const form = $("textForm");
   form.innerHTML = "";
   template.textFields.forEach(field => {
-    if(textValues[field.key] === undefined) textValues[field.key] = field.defaultValue || "";
     const label = document.createElement("label");
     label.textContent = field.label || field.key;
     const input = document.createElement("input");
     input.type = "text";
     input.dataset.key = field.key;
-    input.value = textValues[field.key];
+    input.value = getFieldValue(field);
     input.addEventListener("focus", () => selectLeaderTextField(field.key));
     input.addEventListener("input", () => { textValues[field.key] = input.value; render(); });
     label.appendChild(input);
@@ -1004,7 +1170,7 @@ function buildForms(){
     const input = document.createElement("input");
     input.type = "text";
     input.dataset.key = field.key;
-    input.value = textValues[field.key];
+    input.value = getFieldValue(field);
     input.addEventListener("focus", () => selectLeaderTextField(field.key));
     input.addEventListener("input", () => { textValues[field.key] = input.value; render(); });
     label.appendChild(input);
@@ -1244,7 +1410,8 @@ function buildBackgroundSwitcher(){
     btn.type = "button";
     btn.className = `background-chip ${variant.id === selectedBackgroundId ? "active" : ""}`;
     btn.dataset.bg = variant.id;
-    btn.innerHTML = `<span>${index + 1}</span><div><small>Trang ${index + 1}</small><b>${escapeHtml(variant.label || variant.id)}</b></div>`;
+    applyVariantThemeVars(btn, variant);
+    btn.innerHTML = `<span>${index + 1}</span><div><small>Trang ${index + 1}</small><b>${escapeHtml(getVariantMeta(variant.id).label || variant.label || variant.id)}</b></div>`;
     btn.addEventListener("click", () => selectBackgroundVariant(variant.id, { updateUrl:true }));
     wrap.appendChild(btn);
   });
@@ -1258,9 +1425,10 @@ function buildBackgroundVariantAdmin(){
     const card = document.createElement("div");
     card.className = `background-variant-card ${variant.id === selectedBackgroundId ? "selected" : ""}`;
     card.dataset.bg = variant.id;
+    applyVariantThemeVars(card, variant);
     card.innerHTML = `
       <div class="background-variant-top">
-        <strong>Link ${index + 1} - ${escapeHtml(variant.label || variant.id)}</strong>
+        <strong>Link ${index + 1} - ${escapeHtml(getVariantMeta(variant.id).label || variant.label || variant.id)}</strong>
         <em>Layout riêng</em>
         <button type="button" class="soft mini" data-bg-action="select">Chọn</button>
       </div>
@@ -1470,6 +1638,7 @@ async function selectBackgroundVariant(id, { updateUrl = false } = {}){
   await loadActiveBackgroundImage();
   buildBackgroundSwitcher();
   buildBackgroundVariantAdmin();
+  if($("textForm")) buildForms();
   syncForegroundTransformInputs();
   if(updateUrl) writeBackgroundRoute(nextId);
   showMobileToast(getActiveBackgroundVariant()?.label || nextId);
@@ -1735,7 +1904,7 @@ function fillPlaceholder(text){
 function drawDynamicText(){
   textRenderBoxes.clear();
   getDrawableTextFields().forEach(field => {
-    let value = textValues[field.key] ?? field.defaultValue ?? "";
+    let value = getFieldValue(field);
     if(field.uppercase) value = String(value).toUpperCase();
     if(!value) return;
 
@@ -2740,7 +2909,7 @@ function openInlineTextEditor(key){
   const editor = $("canvasTextEditor");
   if(!field || !box || !editor) return;
   inlineEditorKey = key;
-  inlineEditorBeforeValue = textValues[key] ?? field.defaultValue ?? "";
+  inlineEditorBeforeValue = getFieldValue(field);
   editor.value = inlineEditorBeforeValue;
   editor.hidden = false;
   editor.dataset.key = key;

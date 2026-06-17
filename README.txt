@@ -94,3 +94,12 @@ NÂNG CẤP V6.2.1 - FIX LAYOUT RIÊNG TỪNG MÀU
 - Giữ lại label/id tùy chỉnh và metadata của từng background/foreground variant.
 - Thông báo sau khi lưu cloud hiển thị số layout riêng đã được Supabase trả về.
 - Bắt buộc hard refresh sau khi cập nhật GitHub để trình duyệt nhận app.js mới.
+
+
+NÂNG CẤP V6.2.2
+- Đổi tên 5 link màu: Tinh Hoa, Kì Tài, Tiên Phong, Khai Phá, Bứt Phá.
+- Gắn màu nhận diện riêng cho 5 link nhanh.
+- Tự đổi tiêu đề cụm theo từng link màu.
+- Tự đổi tháng/năm theo tháng hiện tại.
+- Đổi placeholder mặc định cho tên, team và câu chúc mừng.
+- Thêm 1 vùng chữ cố định mới: DỰ ÁN ABC DEF GHK.

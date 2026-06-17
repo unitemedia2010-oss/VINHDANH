@@ -1,7 +1,10 @@
 {
   "templateId": "unite-award-poster-05-2026",
   "templateName": "Unite Group - Award Poster",
-  "canvas": { "width": 1229, "height": 1536 },
+  "canvas": {
+    "width": 1229,
+    "height": 1536
+  },
   "layers": {
     "background": "assets/unite-bg-clean.png",
     "foreground": "assets/unite-foreground.png"
@@ -18,7 +21,7 @@
     {
       "key": "awardTitle",
       "label": "Tên giải lớn",
-      "defaultValue": "BEST SELLER",
+      "defaultValue": "CỤM TINH HOA",
       "x": 615,
       "y": 280,
       "width": 880,
@@ -32,12 +35,13 @@
       "letterSpacing": 1,
       "uppercase": true,
       "draggable": true,
-      "snapToCenter": true
+      "snapToCenter": true,
+      "dynamicDefault": "cluster_title"
     },
     {
       "key": "month",
       "label": "Tháng / năm",
-      "defaultValue": "THÁNG 5/2026",
+      "defaultValue": "THÁNG 6/2026",
       "x": 615,
       "y": 380,
       "width": 520,
@@ -50,12 +54,13 @@
       "shadowBlur": 8,
       "letterSpacing": 1,
       "draggable": true,
-      "snapToCenter": true
+      "snapToCenter": true,
+      "dynamicDefault": "current_month"
     },
     {
       "key": "name",
       "label": "Tên nhân sự",
-      "defaultValue": "MR.BEAR",
+      "defaultValue": "MR/MS.NAME",
       "x": 615,
       "y": 1196,
       "width": 620,
@@ -73,7 +78,7 @@
     {
       "key": "team",
       "label": "Team",
-      "defaultValue": "TEAM T - REX",
+      "defaultValue": "TEAM NAME",
       "x": 615,
       "y": 1260,
       "width": 640,
@@ -90,7 +95,7 @@
     {
       "key": "subline",
       "label": "Dòng mô tả phụ",
-      "defaultValue": "THE BEST SELLER IN MAY 2026",
+      "defaultValue": "CHÚC MỪNG BẠN CHỐT THÀNH CÔNG",
       "x": 615,
       "y": 1378,
       "width": 760,
@@ -101,6 +106,28 @@
       "align": "center",
       "shadowColor": "rgba(255,225,120,0.35)",
       "shadowBlur": 4,
+      "uppercase": true,
+      "draggable": true,
+      "snapToCenter": true
+    },
+    {
+      "key": "campaignLine",
+      "label": "Vùng chữ mới",
+      "defaultValue": "DỰ ÁN ABC DEF GHK",
+      "x": 614.5,
+      "y": 1463,
+      "width": 760,
+      "fontFamily": "Montserrat, Arial, sans-serif",
+      "fontSize": 29,
+      "fontWeight": "700",
+      "color": "#a9f400",
+      "gradientColor2": "#97b121",
+      "gradientAngle": 23,
+      "fillType": "solid",
+      "align": "center",
+      "shadowColor": "rgba(0,0,0,0.45)",
+      "shadowBlur": 3,
+      "letterSpacing": 0,
       "uppercase": true,
       "draggable": true,
       "snapToCenter": true
