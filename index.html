@@ -9,7 +9,7 @@
   <link rel="preload" as="image" href="assets/unite-bg-clean.png" fetchpriority="high">
   <link rel="preload" as="image" href="assets/unite-foreground.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Montserrat:wght@600;700;800;900&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css?v=20260617-leader-temp-2" />
 </head>
 <body>
   <header class="app-header">
@@ -163,6 +163,11 @@
             </span>
             <em>Tên, team, danh hiệu</em>
           </summary>
+          <div class="leader-temp-actions">
+            <button id="btnAddLeaderText" type="button" class="soft">Thêm chữ tạm</button>
+            <button id="btnClearLeaderText" type="button" class="soft danger">Xóa chữ tạm</button>
+          </div>
+          <p class="note">Chữ tạm chỉ dùng cho poster đang làm, không lưu vào template cloud.</p>
           <div id="textForm" class="text-form"></div>
         </details>
 
@@ -292,6 +297,10 @@
 
         <details class="section-card mobile-card">
           <summary><span><b>A5</b><strong>Style chữ</strong></span><em>Font, màu, vị trí</em></summary>
+          <div class="section-head slim-head">
+            <h2>Vùng chữ của màu đang chọn</h2>
+            <button id="btnAddAdminTextField" type="button" class="soft mini">Thêm vùng chữ</button>
+          </div>
           <div id="adminTextFields" class="admin-fields"></div>
         </details>
       </div>
@@ -302,6 +311,6 @@
     <span>Unite Poster Studio Pro v6 · Background → Avatar → Foreground → Text</span>
   </footer>
 
-  <script src="js/app.js" type="module"></script>
+  <script src="js/app.js?v=20260617-leader-temp-2" type="module"></script>
 </body>
 </html>

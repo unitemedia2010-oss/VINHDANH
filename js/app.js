@@ -176,6 +176,7 @@ let selectedBackgroundId = routeOptions.backgroundId || "";
 
 let draggingPerson = false;
 let draggingText = false;
+let draggingLeaderText = false;
 let draggingSlot = false;
 let resizingSlot = false;
 let lastTapAt = 0;
@@ -190,6 +191,9 @@ let renderFrame = 0;
 let inlineEditorKey = null;
 let inlineEditorBeforeValue = "";
 let removeBgModulePromise = null;
+let leaderTextPress = null;
+let leaderTempTextCounter = 1;
+let leaderTempTextFields = [];
 const imageCache = new Map();
 
 let person = {
@@ -270,6 +274,8 @@ function normalizeTemplate(t){
     if(field.align === undefined) field.align = "center";
     if(field.fillType === undefined) field.fillType = 'solid';
   });
+  normalizeVariantLayouts(t);
+  applyActiveVariantLayout({ rebuild: false });
 }
 
 function normalizeBackgroundVariants(t){
@@ -350,6 +356,58 @@ function normalizeForegroundVariants(t){
 
   const active = getActiveForegroundVariant(t);
   if(active?.src) t.layers.foreground = active.src;
+}
+
+function normalizeVariantLayouts(t){
+  const baseLayout = makeLayoutSnapshot(t);
+  getBackgroundVariants(t).forEach((variant) => {
+    variant.layout = normalizeLayoutSnapshot(variant.layout, baseLayout);
+  });
+}
+
+function makeLayoutSnapshot(sourceTemplate = template){
+  return {
+    personSlot: structuredClone(sourceTemplate.personSlot || DEFAULT_TEMPLATE.personSlot),
+    textFields: structuredClone(sourceTemplate.textFields || DEFAULT_TEMPLATE.textFields)
+  };
+}
+
+function normalizeLayoutSnapshot(layout, fallbackLayout = makeLayoutSnapshot()){
+  const next = {
+    personSlot: structuredClone(layout?.personSlot || fallbackLayout.personSlot),
+    textFields: structuredClone(Array.isArray(layout?.textFields) ? layout.textFields : fallbackLayout.textFields)
+  };
+  next.personSlot ||= structuredClone(DEFAULT_TEMPLATE.personSlot);
+  next.textFields ||= structuredClone(DEFAULT_TEMPLATE.textFields);
+  next.textFields.forEach(field => {
+    if(field.draggable === undefined) field.draggable = true;
+    if(field.snapToCenter === undefined) field.snapToCenter = field.align !== "left" && field.align !== "right";
+    if(field.width === undefined) field.width = 600;
+    if(field.fontSize === undefined) field.fontSize = 36;
+    if(field.align === undefined) field.align = "center";
+    if(field.fillType === undefined) field.fillType = 'solid';
+  });
+  return next;
+}
+
+function syncActiveVariantLayout(){
+  const variant = getActiveBackgroundVariant();
+  if(!variant) return;
+  variant.layout = makeLayoutSnapshot();
+}
+
+function applyActiveVariantLayout({ rebuild = true } = {}){
+  const variant = getActiveBackgroundVariant();
+  if(!variant?.layout) return;
+  const layout = normalizeLayoutSnapshot(variant.layout, makeLayoutSnapshot());
+  template.personSlot = structuredClone(layout.personSlot);
+  template.textFields = structuredClone(layout.textFields);
+  if(rebuild){
+    ensureTextValues();
+    buildForms();
+    syncSlotInputs();
+    syncAdminTextCards();
+  }
 }
 
 async function applyCurrentTemplate(){
@@ -463,6 +521,8 @@ function bindEvents(){
   $("btnExport").addEventListener("click", handleTopPrimaryAction);
   $("btnSharePoster").addEventListener("click", handleTopSecondaryAction);
   $("btnRemoveBg").addEventListener("click", removeBackgroundInBrowser);
+  if($("btnAddLeaderText")) $("btnAddLeaderText").addEventListener("click", addLeaderTempText);
+  if($("btnClearLeaderText")) $("btnClearLeaderText").addEventListener("click", clearLeaderTempText);
   $("btnResetTone").addEventListener("click", () => { resetToneControls(true); render(); });
 
   $("scaleRange").addEventListener("input", e => { person.scale = Number(e.target.value); render(); });
@@ -489,6 +549,7 @@ function bindEvents(){
   $("btnRefreshProfile").addEventListener("click", refreshAuthStatus);
   $("btnSaveCloudDraft").addEventListener("click", () => onSaveCloud('draft'));
   $("btnSaveCloudActive").addEventListener("click", () => onSaveCloud('active'));
+  if($("btnAddAdminTextField")) $("btnAddAdminTextField").addEventListener("click", addAdminTextField);
   $("btnReloadCloudList").addEventListener("click", refreshCloudTemplates);
   $("btnLoadSelectedCloud").addEventListener("click", loadSelectedCloudTemplate);
   $("btnArchiveCloud").addEventListener("click", onArchiveSelectedCloud);
@@ -595,6 +656,7 @@ async function onAdminLogout(){
 }
 
 async function onSaveCloud(status){
+  syncActiveVariantLayout();
   syncTemplateMetaFromInputs();
   if(!template.templateId){
     alert('Nhập Template ID / slug trước khi lưu cloud nha.');
@@ -831,11 +893,13 @@ function syncTemplateMetaFromInputs(){
 }
 
 function resetDragAndSnap(){
-  const changed = draggingPerson || draggingText || draggingSlot || resizingSlot || snapState.active || pinchState || activePointers.size;
+  const changed = draggingPerson || draggingText || draggingLeaderText || draggingSlot || resizingSlot || snapState.active || pinchState || activePointers.size || leaderTextPress;
   draggingPerson = false;
   draggingText = false;
+  draggingLeaderText = false;
   draggingSlot = false;
   resizingSlot = false;
+  leaderTextPress = null;
   pinchState = null;
   activePointers.clear();
   if(snapState.active){ snapState.active = false; }
@@ -883,11 +947,120 @@ function buildForms(){
     label.appendChild(input);
     form.appendChild(label);
   });
+  leaderTempTextFields.forEach(field => {
+    if(textValues[field.key] === undefined) textValues[field.key] = field.defaultValue || "";
+    const label = document.createElement("label");
+    label.className = "temp-text-label";
+    label.textContent = field.label || field.key;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.dataset.key = field.key;
+    input.value = textValues[field.key];
+    input.addEventListener("input", () => { textValues[field.key] = input.value; render(); });
+    label.appendChild(input);
+    form.appendChild(label);
+  });
 
   buildBackgroundSwitcher();
   buildBackgroundVariantAdmin();
   syncSlotInputs();
   syncAdminTextCards();
+}
+
+function getDrawableTextFields(){
+  return [...template.textFields, ...leaderTempTextFields];
+}
+
+function findTextFieldByKey(key){
+  return getDrawableTextFields().find(field => field.key === key);
+}
+
+function isLeaderTempTextKey(key){
+  return leaderTempTextFields.some(field => field.key === key);
+}
+
+function cloneTextFieldForNewArea(sourceField, overrides = {}){
+  const base = structuredClone(sourceField || template.textFields[0] || DEFAULT_TEMPLATE.textFields[0]);
+  return {
+    ...base,
+    ...overrides,
+    gradient: base.gradient ? structuredClone(base.gradient) : undefined,
+    draggable: overrides.draggable ?? true,
+    snapToCenter: overrides.snapToCenter ?? true
+  };
+}
+
+function addLeaderTempText(){
+  const source = findTextFieldByKey(selectedTextKey) || template.textFields[0] || DEFAULT_TEMPLATE.textFields[0];
+  const key = `leaderTemp_${Date.now()}_${leaderTempTextCounter++}`;
+  const field = cloneTextFieldForNewArea(source, {
+    key,
+    label: `Chữ tạm ${leaderTempTextCounter - 1}`,
+    defaultValue: "CHỮ TẠM",
+    x: canvas.width / 2,
+    y: Math.round(canvas.height * 0.52),
+    width: Math.min(source.width || 620, canvas.width - 120),
+    fontSize: Math.min(Math.max(source.fontSize || 42, 28), 54)
+  });
+  leaderTempTextFields.push(field);
+  textValues[key] = field.defaultValue;
+  selectedTextKey = key;
+  buildForms();
+  showMobileToast("Đã thêm chữ tạm • kéo chữ trên poster để đặt vị trí");
+  render(true);
+  requestAnimationFrame(() => openInlineTextEditor(key));
+}
+
+function clearLeaderTempText(){
+  if(!leaderTempTextFields.length){
+    showMobileToast("Chưa có chữ tạm để xóa");
+    return;
+  }
+  closeInlineTextEditor();
+  leaderTempTextFields.forEach(field => delete textValues[field.key]);
+  leaderTempTextFields = [];
+  selectedTextKey = template.textFields[0]?.key || "awardTitle";
+  buildForms();
+  showMobileToast("Đã xóa toàn bộ chữ tạm");
+  render();
+}
+
+function addAdminTextField(){
+  syncActiveVariantLayout();
+  const source = template.textFields.find(field => field.key === selectedTextKey) || template.textFields[0] || DEFAULT_TEMPLATE.textFields[0];
+  const key = `customText_${Date.now()}`;
+  const field = cloneTextFieldForNewArea(source, {
+    key,
+    label: "Vùng chữ mới",
+    defaultValue: "CHỮ MỚI",
+    x: canvas.width / 2,
+    y: Math.round(canvas.height * 0.58),
+    width: Math.min(source.width || 620, canvas.width - 120),
+    fontSize: Math.min(Math.max(source.fontSize || 42, 26), 58)
+  });
+  template.textFields.push(field);
+  textValues[key] = field.defaultValue;
+  selectedTextKey = key;
+  syncActiveVariantLayout();
+  buildForms();
+  showMobileToast("Admin đã thêm vùng chữ cho màu đang chọn");
+  render();
+}
+
+function deleteAdminTextField(key){
+  const index = template.textFields.findIndex(field => field.key === key);
+  if(index < 0) return;
+  if(template.textFields.length <= 1){
+    alert("Template cần giữ ít nhất 1 vùng chữ.");
+    return;
+  }
+  if(!confirm("Xóa vùng chữ này khỏi layout màu đang chọn?")) return;
+  const [removed] = template.textFields.splice(index, 1);
+  delete textValues[removed.key];
+  selectedTextKey = template.textFields[Math.max(0, index - 1)]?.key || template.textFields[0]?.key || "";
+  syncActiveVariantLayout();
+  buildForms();
+  render();
 }
 
 function buildBackgroundSwitcher(){
@@ -900,7 +1073,7 @@ function buildBackgroundSwitcher(){
     btn.type = "button";
     btn.className = `background-chip ${variant.id === selectedBackgroundId ? "active" : ""}`;
     btn.dataset.bg = variant.id;
-    btn.innerHTML = `<span>${index + 1}</span><b>${escapeHtml(variant.label || variant.id)}</b>`;
+    btn.innerHTML = `<span>${index + 1}</span><div><small>Trang ${index + 1}</small><b>${escapeHtml(variant.label || variant.id)}</b></div>`;
     btn.addEventListener("click", () => selectBackgroundVariant(variant.id, { updateUrl:true }));
     wrap.appendChild(btn);
   });
@@ -916,7 +1089,8 @@ function buildBackgroundVariantAdmin(){
     card.dataset.bg = variant.id;
     card.innerHTML = `
       <div class="background-variant-top">
-        <strong>Link ${index + 1}</strong>
+        <strong>Link ${index + 1} - ${escapeHtml(variant.label || variant.id)}</strong>
+        <em>Layout riêng</em>
         <button type="button" class="soft mini" data-bg-action="select">Chọn</button>
       </div>
       <div class="field-grid two">
@@ -981,6 +1155,8 @@ function updateBackgroundVariantField(variant, input, { rebuildAdmin = true } = 
   const field = input.dataset.bgField;
   if(field === "label"){
     variant.label = input.value.trim() || variant.id;
+    const foregroundVariant = getForegroundVariants().find(item => item.id === variant.id);
+    if(foregroundVariant) foregroundVariant.label = variant.label;
   }
   if(field === "id"){
     const oldId = variant.id;
@@ -1063,7 +1239,9 @@ async function selectBackgroundVariant(id, { updateUrl = false } = {}){
   const nextId = normalizeBackgroundId(id);
   const variants = getBackgroundVariants();
   if(!variants.some(item => item.id === nextId)) return;
+  syncActiveVariantLayout();
   selectedBackgroundId = nextId;
+  applyActiveVariantLayout({ rebuild:true });
   await loadActiveBackgroundImage();
   buildBackgroundSwitcher();
   buildBackgroundVariantAdmin();
@@ -1122,7 +1300,10 @@ function syncAdminTextCards(){
     card.dataset.key = field.key;
     const grad = normalizeGradient(field);
     card.innerHTML = `
-      <strong>${escapeHtml(field.label || field.key)}</strong>
+      <div class="field-card-title">
+        <strong>${escapeHtml(field.label || field.key)}</strong>
+        <button type="button" class="soft mini danger" data-action="delete-text">Xóa</button>
+      </div>
       <label>Giá trị mặc định <input data-field="defaultValue" type="text" value="${escapeAttr(field.defaultValue || "")}"></label>
       <div class="field-grid four">
         <label>X <input data-field="x" type="number" value="${field.x}"></label>
@@ -1196,6 +1377,13 @@ function syncAdminTextCards(){
       syncAdminTextCards();
       render();
     });
+    const deleteBtn = card.querySelector('[data-action="delete-text"]');
+    if(deleteBtn){
+      deleteBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        deleteAdminTextField(field.key);
+      });
+    }
     card.querySelectorAll("input,select").forEach(input => {
       input.addEventListener("click", e => e.stopPropagation());
       input.addEventListener("input", () => updateFieldFromControl(field, input));
@@ -1244,6 +1432,7 @@ function updateFieldFromControl(field, input){
     const leaderInput = Array.from(document.querySelectorAll('#textForm input')).find((el, idx) => template.textFields[idx]?.key === field.key);
     if(leaderInput) leaderInput.value = input.value;
   }
+  syncActiveVariantLayout();
   render();
 }
 
@@ -1252,6 +1441,7 @@ function updateSlotFromInputs(){
   template.personSlot.y = Number($("slotY").value || 0);
   template.personSlot.width = Number($("slotW").value || 0);
   template.personSlot.height = Number($("slotH").value || 0);
+  syncActiveVariantLayout();
   render();
 }
 
@@ -1314,7 +1504,7 @@ function fillPlaceholder(text){
 
 function drawDynamicText(){
   textRenderBoxes.clear();
-  template.textFields.forEach(field => {
+  getDrawableTextFields().forEach(field => {
     let value = textValues[field.key] ?? field.defaultValue ?? "";
     if(field.uppercase) value = String(value).toUpperCase();
     if(!value) return;
@@ -1391,6 +1581,7 @@ function drawTextWithLetterSpacing(text, x, y, letterSpacing, align){
 
 function drawTextGuides(){
   textRenderBoxes.forEach((box, key) => {
+    if(isLeaderTempTextKey(key)) return;
     const isSelected = key === selectedTextKey;
     ctx.save();
     ctx.setLineDash(isSelected ? [] : [8, 8]);
@@ -1411,13 +1602,25 @@ function drawTextGuides(){
 function drawLeaderTextGuides(){
   textRenderBoxes.forEach((box, key) => {
     const isEditing = key === inlineEditorKey;
+    const isTemp = isLeaderTempTextKey(key);
     ctx.save();
     ctx.setLineDash([7, 9]);
     ctx.lineWidth = isEditing ? 3 : 2;
-    ctx.strokeStyle = isEditing ? "rgba(255,231,163,.95)" : "rgba(255,231,163,.36)";
-    ctx.fillStyle = isEditing ? "rgba(233,189,85,.12)" : "rgba(233,189,85,.035)";
+    ctx.strokeStyle = isTemp
+      ? (isEditing ? "rgba(126,176,255,.98)" : "rgba(126,176,255,.62)")
+      : (isEditing ? "rgba(255,231,163,.95)" : "rgba(255,231,163,.36)");
+    ctx.fillStyle = isTemp
+      ? "rgba(126,176,255,.09)"
+      : (isEditing ? "rgba(233,189,85,.12)" : "rgba(233,189,85,.035)");
     ctx.fillRect(box.x, box.y, box.width, box.height);
     ctx.strokeRect(box.x, box.y, box.width, box.height);
+    if(isTemp){
+      ctx.fillStyle = "#dcebff";
+      ctx.font = "800 16px Inter, Arial, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText("TẠM", box.x + 8, box.y + 6);
+    }
     ctx.restore();
   });
 }
@@ -1964,7 +2167,14 @@ function pointerDown(e){
   if(activeTab === "leader"){
     const textHit = hitTextBox(p.x, p.y);
     if(textHit){
-      openInlineTextEditor(textHit.key);
+      selectedTextKey = textHit.key;
+      if(isLeaderTempTextKey(textHit.key)){
+        closeInlineTextEditor();
+        const field = findTextFieldByKey(textHit.key);
+        leaderTextPress = { key:textHit.key, x:p.x, y:p.y, fieldX:field.x, fieldY:field.y, moved:false };
+      } else {
+        openInlineTextEditor(textHit.key);
+      }
       return;
     }
     closeInlineTextEditor();
@@ -1972,7 +2182,7 @@ function pointerDown(e){
 
   if(activeTab === "admin"){
     closeInlineTextEditor();
-    const hit = hitTextBox(p.x, p.y);
+    const hit = hitTextBox(p.x, p.y, { includeTemp:false });
     if(hit){
       selectedTextKey = hit.key;
       const field = template.textFields.find(f => f.key === hit.key);
@@ -2015,6 +2225,24 @@ function pointerMove(e){
     return;
   }
 
+  if(leaderTextPress && activeTab === "leader"){
+    const field = findTextFieldByKey(leaderTextPress.key);
+    if(!field) return;
+    const dx = p.x - leaderTextPress.x;
+    const dy = p.y - leaderTextPress.y;
+    if(!leaderTextPress.moved && Math.hypot(dx, dy) > 8){
+      leaderTextPress.moved = true;
+      draggingLeaderText = true;
+      showMobileToast("Đang kéo chữ tạm");
+    }
+    if(leaderTextPress.moved){
+      field.x = Math.round(leaderTextPress.fieldX + dx);
+      field.y = Math.round(leaderTextPress.fieldY + dy);
+      render();
+      return;
+    }
+  }
+
   if(draggingText){
     const field = template.textFields.find(f => f.key === selectedTextKey);
     if(!field) return;
@@ -2026,6 +2254,7 @@ function pointerMove(e){
     snapState.active = snap.snapped;
     snapState.targetX = canvas.width / 2;
     updateAdminCardValues(field);
+    syncActiveVariantLayout();
     render();
     return;
   }
@@ -2034,6 +2263,7 @@ function pointerMove(e){
     template.personSlot.x = Math.round(dragStart.slotX + (p.x - dragStart.x));
     template.personSlot.y = Math.round(dragStart.slotY + (p.y - dragStart.y));
     syncSlotInputs();
+    syncActiveVariantLayout();
     render();
     return;
   }
@@ -2042,6 +2272,7 @@ function pointerMove(e){
     template.personSlot.width = Math.max(120, Math.round(dragStart.slotW + (p.x - dragStart.x)));
     template.personSlot.height = Math.max(120, Math.round(dragStart.slotH + (p.y - dragStart.y)));
     syncSlotInputs();
+    syncActiveVariantLayout();
     render();
     return;
   }
@@ -2066,12 +2297,18 @@ function pointerUp(e){
     syncPersonControls();
   }
   if(activePointers.size === 0){
-    const wasDragging = draggingPerson || draggingText || draggingSlot || resizingSlot;
+    const pendingLeaderPress = leaderTextPress;
+    const wasDragging = draggingPerson || draggingText || draggingLeaderText || draggingSlot || resizingSlot;
     draggingPerson = false;
     draggingText = false;
+    draggingLeaderText = false;
     draggingSlot = false;
     resizingSlot = false;
+    leaderTextPress = null;
     if(snapState.active) snapState.active = false;
+    if(pendingLeaderPress && !pendingLeaderPress.moved){
+      openInlineTextEditor(pendingLeaderPress.key);
+    }
     if(wasDragging) render();
   }
 }
@@ -2131,12 +2368,15 @@ function applyTextSnap(field, rawX){
 }
 
 function updateCanvasCursor(p){
-  if(activeTab === "leader" && hitTextBox(p.x, p.y)){
-    canvas.style.cursor = "text";
-    return;
+  if(activeTab === "leader"){
+    const leaderHit = hitTextBox(p.x, p.y);
+    if(leaderHit){
+      canvas.style.cursor = isLeaderTempTextKey(leaderHit.key) ? "grab" : "text";
+      return;
+    }
   }
   if(activeTab === "admin"){
-    const textHit = hitTextBox(p.x, p.y);
+    const textHit = hitTextBox(p.x, p.y, { includeTemp:false });
     if(textHit){ canvas.style.cursor = "grab"; return; }
     const slotHit = hitPersonSlot(p.x, p.y);
     if(slotHit === "resize") { canvas.style.cursor = "nwse-resize"; return; }
@@ -2149,8 +2389,9 @@ function updateCanvasCursor(p){
   canvas.style.cursor = "default";
 }
 
-function hitTextBox(x, y){
-  const fields = [...template.textFields].reverse();
+function hitTextBox(x, y, { includeTemp = true } = {}){
+  const sourceFields = includeTemp ? getDrawableTextFields() : template.textFields;
+  const fields = [...sourceFields].reverse();
   for(const f of fields){
     const box = textRenderBoxes.get(f.key);
     if(!box) continue;
@@ -2178,7 +2419,7 @@ function updateAdminCardValues(field){
 }
 
 function openInlineTextEditor(key){
-  const field = template.textFields.find(item => item.key === key);
+  const field = findTextFieldByKey(key);
   const box = textRenderBoxes.get(key);
   const editor = $("canvasTextEditor");
   if(!field || !box || !editor) return;
@@ -2199,7 +2440,7 @@ function positionInlineTextEditor(){
   const editor = $("canvasTextEditor");
   if(!editor || !inlineEditorKey || editor.hidden || exportCleanMode) return;
   const box = textRenderBoxes.get(inlineEditorKey);
-  const field = template.textFields.find(item => item.key === inlineEditorKey);
+  const field = findTextFieldByKey(inlineEditorKey);
   if(!box || !field) return;
   const scaleX = canvas.clientWidth / canvas.width;
   const scaleY = canvas.clientHeight / canvas.height;
