@@ -690,3 +690,38 @@ input[type="range"]{
   .progress-badge{align-self:flex-start}
   .progress-steps{grid-template-columns:1fr 1fr}
 }
+
+
+/* ===== V6.2: Leader session text + Admin foreground transform ===== */
+.leader-temp-actions{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  padding:0 15px 10px;
+}
+.leader-temp-actions .soft{min-height:40px;padding:0 10px;font-size:11.5px}
+.leader-text-style-panel{
+  margin:0 15px 12px;
+  padding:13px;
+  border:1px solid rgba(126,176,255,.25);
+  border-radius:17px;
+  background:linear-gradient(180deg,rgba(126,176,255,.09),rgba(255,255,255,.025));
+}
+.leader-text-style-panel[hidden]{display:none}
+.leader-style-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.leader-style-head strong{display:block;font-size:13px;color:#fff}
+.leader-style-head span{display:block;margin-top:3px;font-size:10.5px;line-height:1.35;color:#aebed8}
+.leader-style-grid label{font-size:10.5px}
+.leader-style-grid input,.leader-style-grid select{min-height:38px}
+.temp-text-label{border-color:rgba(126,176,255,.28)!important;background:rgba(126,176,255,.055)!important}
+.foreground-edit-check{margin:0!important;padding:7px 10px!important;border-radius:999px;background:rgba(255,115,115,.07);border:1px solid rgba(255,115,115,.2)}
+.foreground-edit-check input{accent-color:#ff7373}
+
+@media (max-width:700px){
+  .leader-temp-actions{grid-template-columns:1fr 1fr}
+  .leader-temp-actions .danger{grid-column:1/-1}
+  .leader-style-grid{grid-template-columns:1fr 1fr!important}
+}
+@media (max-width:420px){
+  .leader-style-grid{grid-template-columns:1fr!important}
+}

@@ -175,6 +175,11 @@ export async function saveTemplateToSupabase({
     uploadedAssets.push(fontAsset);
   }
 
+  workingTemplate.fonts = (workingTemplate.fonts || []).filter((font, index, list) => {
+    const identity = `${font.family || ""}|${font.url || ""}`;
+    return list.findIndex(item => `${item.family || ""}|${item.url || ""}` === identity) === index;
+  });
+
   const payload = {
     slug,
     name: workingTemplate.templateName,
@@ -208,7 +213,12 @@ export async function saveTemplateToSupabase({
       .from("poster_assets")
       .insert(assetRows);
 
-    if (assetError) throw assetError;
+    // Template JSON đã được upsert thành công ở trên. Không báo "lưu thất bại"
+    // chỉ vì bảng log asset chưa được tạo/chưa đủ policy.
+    if (assetError) {
+      console.warn("Template đã lưu nhưng poster_assets chưa ghi được:", assetError);
+      saved.asset_log_warning = assetError.message || String(assetError);
+    }
   }
 
   return saved;

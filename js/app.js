@@ -143,6 +143,7 @@ const DEFAULT_TEMPLATE = {
 
 const SNAP_THRESHOLD = 14;
 const SLOT_HANDLE_SIZE = 20;
+const FOREGROUND_HANDLE_SIZE = 26;
 const BACKGROUND_SLOT_LIMIT = 5;
 const REMOVE_BG_MODULE_URL = "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
 const MAX_PERSON_EDGE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? 1800 : 2400;
@@ -179,12 +180,15 @@ let draggingText = false;
 let draggingLeaderText = false;
 let draggingSlot = false;
 let resizingSlot = false;
+let draggingForeground = false;
+let resizingForeground = false;
+let editForegroundMode = false;
 let lastTapAt = 0;
 let hideToastTimer = null;
 const activePointers = new Map();
 let pinchState = null;
 let selectedTextKey = "awardTitle";
-let dragStart = { x:0, y:0, px:0, py:0, fieldX:0, fieldY:0, slotX:0, slotY:0, slotW:0, slotH:0 };
+let dragStart = { x:0, y:0, px:0, py:0, fieldX:0, fieldY:0, slotX:0, slotY:0, slotW:0, slotH:0, fgX:0, fgY:0, fgW:0, fgH:0 };
 let textRenderBoxes = new Map();
 let snapState = { active:false, targetX:0, label:"Đã canh giữa" };
 let renderFrame = 0;
@@ -194,6 +198,7 @@ let removeBgModulePromise = null;
 let leaderTextPress = null;
 let leaderTempTextCounter = 1;
 let leaderTempTextFields = [];
+let leaderTextOverrides = new Map();
 const imageCache = new Map();
 
 let person = {
@@ -287,11 +292,16 @@ function normalizeBackgroundVariants(t){
   t.backgroundVariants = merged.slice(0, BACKGROUND_SLOT_LIMIT).map((item, index) => {
     const fallback = defaults[index] || defaults[0];
     return {
-      id: normalizeBackgroundId(fallback.id || item.id || `bg-${index + 1}`),
-      label: fallback.label || item.label || `Nền ${index + 1}`,
-      src: item.src || item.url || (index === 0 ? baseBackground : fallback.src || baseBackground),
-      storagePath: item.storagePath || null,
-      isDefault: Boolean(item.isDefault || index === 0)
+      ...structuredClone(item || {}),
+      id: normalizeBackgroundId(item?.id || fallback.id || `bg-${index + 1}`),
+      label: item?.label || fallback.label || `Nền ${index + 1}`,
+      src: item?.src || item?.url || (index === 0 ? baseBackground : fallback.src || baseBackground),
+      storagePath: item?.storagePath || null,
+      isDefault: Boolean(item?.isDefault || index === 0),
+      // QUAN TRỌNG: giữ nguyên layout riêng của từng màu khi nạp lại từ Supabase.
+      // Bản 6.2.0 đã vô tình bỏ thuộc tính này trong bước normalize,
+      // khiến 5 màu bị dùng chung vị trí chữ/person slot sau khi reload.
+      layout: item?.layout ? structuredClone(item.layout) : null
     };
   });
 
@@ -303,7 +313,8 @@ function normalizeBackgroundVariants(t){
       label: fallback.label || `Nền ${index + 1}`,
       src: fallback.src || baseBackground,
       storagePath: null,
-      isDefault: index === 0
+      isDefault: index === 0,
+      layout: null
     });
   }
 
@@ -330,11 +341,13 @@ function normalizeForegroundVariants(t){
   t.foregroundVariants = merged.slice(0, BACKGROUND_SLOT_LIMIT).map((item, index) => {
     const fallback = defaults[index] || defaults[0];
     return {
-      id: normalizeBackgroundId(fallback.id || item.id || `fg-${index + 1}`),
-      label: fallback.label || item.label || `Bản trên ${index + 1}`,
-      src: item.src || item.url || baseForeground,
-      storagePath: item.storagePath || null,
-      isDefault: Boolean(item.isDefault || index === 0)
+      ...structuredClone(item || {}),
+      id: normalizeBackgroundId(item?.id || fallback.id || `fg-${index + 1}`),
+      label: item?.label || fallback.label || `Bản trên ${index + 1}`,
+      src: item?.src || item?.url || baseForeground,
+      storagePath: item?.storagePath || null,
+      isDefault: Boolean(item?.isDefault || index === 0),
+      transform: normalizeForegroundTransform(item?.transform, t.canvas)
     };
   });
 
@@ -346,7 +359,8 @@ function normalizeForegroundVariants(t){
       label: fallback.label || `Bản trên ${index + 1}`,
       src: fallback.src || baseForeground,
       storagePath: null,
-      isDefault: index === 0
+      isDefault: index === 0,
+      transform: normalizeForegroundTransform(null, t.canvas)
     });
   }
 
@@ -356,6 +370,18 @@ function normalizeForegroundVariants(t){
 
   const active = getActiveForegroundVariant(t);
   if(active?.src) t.layers.foreground = active.src;
+}
+
+function normalizeForegroundTransform(transform, canvasDef = template.canvas){
+  const canvasWidth = Number(canvasDef?.width || canvas.width || 1229);
+  const canvasHeight = Number(canvasDef?.height || canvas.height || 1536);
+  const numberOr = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+  return {
+    x: numberOr(transform?.x, 0),
+    y: numberOr(transform?.y, 0),
+    width: Math.max(80, numberOr(transform?.width, canvasWidth)),
+    height: Math.max(80, numberOr(transform?.height, canvasHeight))
+  };
 }
 
 function normalizeVariantLayouts(t){
@@ -411,6 +437,7 @@ function applyActiveVariantLayout({ rebuild = true } = {}){
 }
 
 async function applyCurrentTemplate(){
+  resetLeaderSessionLayout({ clearTemp:true, silent:true });
   setupCanvas();
   await loadFontsFromTemplate(template);
   await loadTemplateImages();
@@ -523,6 +550,12 @@ function bindEvents(){
   $("btnRemoveBg").addEventListener("click", removeBackgroundInBrowser);
   if($("btnAddLeaderText")) $("btnAddLeaderText").addEventListener("click", addLeaderTempText);
   if($("btnClearLeaderText")) $("btnClearLeaderText").addEventListener("click", clearLeaderTempText);
+  if($("btnResetLeaderLayout")) $("btnResetLeaderLayout").addEventListener("click", () => resetLeaderSessionLayout({ clearTemp:false }));
+  if($("btnDeleteSelectedTemp")) $("btnDeleteSelectedTemp").addEventListener("click", deleteSelectedLeaderTempText);
+  ["leaderFontSelect","leaderFontSize","leaderFontWeight","leaderFontColor","leaderTextAlign","leaderTextWidth"].forEach(id => {
+    if($(id)) $(id).addEventListener("input", (e) => updateLeaderSelectedTextStyle(e.target));
+    if($(id)) $(id).addEventListener("change", (e) => updateLeaderSelectedTextStyle(e.target));
+  });
   $("btnResetTone").addEventListener("click", () => { resetToneControls(true); render(); });
 
   $("scaleRange").addEventListener("input", e => { person.scale = Number(e.target.value); render(); });
@@ -540,6 +573,16 @@ function bindEvents(){
   $("showSlot").addEventListener("change", e => { showSlot = e.target.checked; render(); });
   $("showTextGuides").addEventListener("change", e => { showTextGuides = e.target.checked; render(); });
   ["slotX","slotY","slotW","slotH"].forEach(id => $(id).addEventListener("input", updateSlotFromInputs));
+  if($("editForegroundMode")) $("editForegroundMode").addEventListener("change", e => {
+    editForegroundMode = e.target.checked;
+    resetDragAndSnap();
+    render();
+  });
+  ["fgX","fgY","fgW","fgH"].forEach(id => {
+    if($(id)) $(id).addEventListener("input", updateForegroundTransformFromInputs);
+  });
+  if($("btnResetForegroundTransform")) $("btnResetForegroundTransform").addEventListener("click", resetForegroundTransform);
+  if($("btnFitForegroundOriginal")) $("btnFitForegroundOriginal").addEventListener("click", fitForegroundToOriginalRatio);
 
   $("templateIdInput").addEventListener("input", e => { template.templateId = e.target.value.trim(); });
   $("templateNameInput").addEventListener("input", e => { template.templateName = e.target.value.trim(); });
@@ -686,8 +729,9 @@ async function onSaveCloud(status){
     bgSourceFile = null;
     fgSourceFile = null;
     selectedFontFiles = [];
-    setPublicTemplateInfo(`Cloud lưu thành công: <b>${escapeHtml(saved.name)}</b> (${escapeHtml(saved.status)})`);
-    alert(`Đã lưu template cloud thành công với status = ${saved.status}.`);
+    const persistenceSummary = describeTemplatePersistence(saved.template_json);
+    setPublicTemplateInfo(`Cloud lưu thành công: <b>${escapeHtml(saved.name)}</b> (${escapeHtml(saved.status)})<br>${persistenceSummary}`);
+    alert(`Đã lưu template cloud thành công với status = ${saved.status}.\n${stripHtml(persistenceSummary)}`);
     saveBtn.textContent = oldText;
     saveBtn.disabled = false;
   } catch (err) {
@@ -872,12 +916,14 @@ function switchTab(tabName){
   const hint = $("canvasHint");
   if(hint){
     hint.textContent = activeTab === "admin"
-      ? "Admin: kéo chữ, kéo vùng người hoặc kéo nút resize ở góc phải dưới."
-      : "Leader: kéo ảnh người, chụm 2 ngón để zoom trên điện thoại.";
+      ? "Admin: kéo chữ, vùng người; bật chế độ bản trên để kéo/resize foreground."
+      : "Leader: kéo ảnh người, kéo mọi vùng chữ; thay đổi chỉ tồn tại trong phiên.";
   }
   syncModeSwitchButton();
   syncLeaderGuideButton();
   syncCompactToolbarLabels();
+  syncLeaderTextStylePanel();
+  syncForegroundTransformInputs();
   snapState.active = false;
   render();
 }
@@ -893,12 +939,14 @@ function syncTemplateMetaFromInputs(){
 }
 
 function resetDragAndSnap(){
-  const changed = draggingPerson || draggingText || draggingLeaderText || draggingSlot || resizingSlot || snapState.active || pinchState || activePointers.size || leaderTextPress;
+  const changed = draggingPerson || draggingText || draggingLeaderText || draggingSlot || resizingSlot || draggingForeground || resizingForeground || snapState.active || pinchState || activePointers.size || leaderTextPress;
   draggingPerson = false;
   draggingText = false;
   draggingLeaderText = false;
   draggingSlot = false;
   resizingSlot = false;
+  draggingForeground = false;
+  resizingForeground = false;
   leaderTextPress = null;
   pinchState = null;
   activePointers.clear();
@@ -943,6 +991,7 @@ function buildForms(){
     input.type = "text";
     input.dataset.key = field.key;
     input.value = textValues[field.key];
+    input.addEventListener("focus", () => selectLeaderTextField(field.key));
     input.addEventListener("input", () => { textValues[field.key] = input.value; render(); });
     label.appendChild(input);
     form.appendChild(label);
@@ -956,6 +1005,7 @@ function buildForms(){
     input.type = "text";
     input.dataset.key = field.key;
     input.value = textValues[field.key];
+    input.addEventListener("focus", () => selectLeaderTextField(field.key));
     input.addEventListener("input", () => { textValues[field.key] = input.value; render(); });
     label.appendChild(input);
     form.appendChild(label);
@@ -964,19 +1014,139 @@ function buildForms(){
   buildBackgroundSwitcher();
   buildBackgroundVariantAdmin();
   syncSlotInputs();
+  syncForegroundTransformInputs();
   syncAdminTextCards();
+  syncLeaderTextStylePanel();
 }
 
 function getDrawableTextFields(){
-  return [...template.textFields, ...leaderTempTextFields];
+  const baseFields = template.textFields.map(field => {
+    if(activeTab !== "leader") return field;
+    return leaderTextOverrides.get(field.key) || field;
+  });
+  return activeTab === "leader" ? [...baseFields, ...leaderTempTextFields] : baseFields;
 }
 
 function findTextFieldByKey(key){
-  return getDrawableTextFields().find(field => field.key === key);
+  if(activeTab === "leader"){
+    const temporary = leaderTempTextFields.find(field => field.key === key);
+    if(temporary) return temporary;
+    return leaderTextOverrides.get(key) || template.textFields.find(field => field.key === key);
+  }
+  return template.textFields.find(field => field.key === key);
 }
 
 function isLeaderTempTextKey(key){
   return leaderTempTextFields.some(field => field.key === key);
+}
+
+function ensureLeaderTextOverride(key){
+  if(isLeaderTempTextKey(key)) return leaderTempTextFields.find(field => field.key === key) || null;
+  if(leaderTextOverrides.has(key)) return leaderTextOverrides.get(key);
+  const source = template.textFields.find(field => field.key === key);
+  if(!source) return null;
+  const override = structuredClone(source);
+  leaderTextOverrides.set(key, override);
+  return override;
+}
+
+function selectLeaderTextField(key){
+  selectedTextKey = key;
+  syncLeaderTextStylePanel();
+  render();
+}
+
+function resetLeaderSessionLayout({ clearTemp = false, silent = false } = {}){
+  closeInlineTextEditor();
+  leaderTextOverrides.clear();
+  if(clearTemp){
+    leaderTempTextFields.forEach(field => delete textValues[field.key]);
+    leaderTempTextFields = [];
+    leaderTempTextCounter = 1;
+  }
+  if(!findTextFieldByKey(selectedTextKey)) selectedTextKey = template.textFields[0]?.key || "awardTitle";
+  if(!silent){
+    if($("textForm")) buildForms();
+    showMobileToast(clearTemp ? "Đã làm mới chỉnh sửa tạm" : "Đã khôi phục vị trí/style gốc");
+    render();
+  }
+}
+
+function getLeaderFontOptions(){
+  const builtIn = [
+    { label:"Montserrat", value:"Montserrat, Arial, sans-serif" },
+    { label:"Inter", value:"Inter, Arial, sans-serif" },
+    { label:"Playfair Display", value:"Playfair Display, Georgia, serif" },
+    { label:"Arial", value:"Arial, sans-serif" },
+    { label:"Georgia", value:"Georgia, serif" }
+  ];
+  const uploaded = (template.fonts || [])
+    .filter(font => font?.family)
+    .map(font => ({ label:`Admin · ${font.name || font.family}`, value:`${font.family}, Arial, sans-serif` }));
+  const seen = new Set();
+  return [...builtIn, ...uploaded].filter(item => {
+    if(seen.has(item.value)) return false;
+    seen.add(item.value);
+    return true;
+  });
+}
+
+function syncLeaderTextStylePanel(){
+  const panel = $("leaderTextStylePanel");
+  if(!panel) return;
+  const field = activeTab === "leader" ? findTextFieldByKey(selectedTextKey) : null;
+  panel.hidden = !field;
+  if(!field) return;
+  const name = $("leaderSelectedTextName");
+  const type = $("leaderSelectedTextType");
+  if(name) name.textContent = field.label || field.key;
+  const isTemp = isLeaderTempTextKey(field.key);
+  const isOverride = leaderTextOverrides.has(field.key);
+  if(type) type.textContent = isTemp ? "Vùng chữ tạm · không lưu cloud" : (isOverride ? "Đã tùy chỉnh tạm · không lưu cloud" : "Vùng có sẵn · kéo/style chỉ trong phiên");
+
+  const fontSelect = $("leaderFontSelect");
+  if(fontSelect){
+    const options = getLeaderFontOptions();
+    const current = field.fontFamily || "Arial, sans-serif";
+    if(!options.some(item => item.value === current)) options.unshift({ label:"Font hiện tại", value:current });
+    fontSelect.innerHTML = options.map(item => `<option value="${escapeAttr(item.value)}">${escapeHtml(item.label)}</option>`).join("");
+    fontSelect.value = current;
+  }
+  if($("leaderFontSize")) $("leaderFontSize").value = Math.round(Number(field.fontSize || 36));
+  if($("leaderFontWeight")) $("leaderFontWeight").value = String(field.fontWeight || "700");
+  if($("leaderFontColor")) $("leaderFontColor").value = toHex(field.color || "#ffffff");
+  if($("leaderTextAlign")) $("leaderTextAlign").value = field.align || "center";
+  if($("leaderTextWidth")) $("leaderTextWidth").value = Math.round(Number(field.width || 600));
+  if($("btnDeleteSelectedTemp")) $("btnDeleteSelectedTemp").hidden = !isTemp;
+}
+
+function updateLeaderSelectedTextStyle(control){
+  if(activeTab !== "leader" || !control) return;
+  const field = ensureLeaderTextOverride(selectedTextKey);
+  if(!field) return;
+  if(control.id === "leaderFontSelect") field.fontFamily = control.value;
+  if(control.id === "leaderFontSize") field.fontSize = clamp(Number(control.value || 36), 12, 220);
+  if(control.id === "leaderFontWeight") field.fontWeight = String(control.value || "700");
+  if(control.id === "leaderFontColor"){
+    field.color = control.value;
+    if(field.fillType === "gradient") field.fillType = "solid";
+  }
+  if(control.id === "leaderTextAlign") field.align = control.value || "center";
+  if(control.id === "leaderTextWidth") field.width = clamp(Number(control.value || 600), 80, canvas.width);
+  syncLeaderTextStylePanel();
+  render();
+}
+
+function deleteSelectedLeaderTempText(){
+  if(!isLeaderTempTextKey(selectedTextKey)) return;
+  const index = leaderTempTextFields.findIndex(field => field.key === selectedTextKey);
+  if(index < 0) return;
+  const [removed] = leaderTempTextFields.splice(index, 1);
+  delete textValues[removed.key];
+  selectedTextKey = template.textFields[0]?.key || leaderTempTextFields[0]?.key || "awardTitle";
+  buildForms();
+  showMobileToast("Đã xóa vùng chữ tạm đang chọn");
+  render();
 }
 
 function cloneTextFieldForNewArea(sourceField, overrides = {}){
@@ -1019,6 +1189,7 @@ function clearLeaderTempText(){
   closeInlineTextEditor();
   leaderTempTextFields.forEach(field => delete textValues[field.key]);
   leaderTempTextFields = [];
+  leaderTempTextCounter = 1;
   selectedTextKey = template.textFields[0]?.key || "awardTitle";
   buildForms();
   showMobileToast("Đã xóa toàn bộ chữ tạm");
@@ -1209,6 +1380,57 @@ function getActiveForegroundSrc(){
   return getActiveForegroundVariant()?.src || template.layers?.foreground || "";
 }
 
+function getActiveForegroundTransform(){
+  const variant = getActiveForegroundVariant();
+  if(!variant) return normalizeForegroundTransform(null, template.canvas);
+  variant.transform = normalizeForegroundTransform(variant.transform, template.canvas);
+  return variant.transform;
+}
+
+function syncForegroundTransformInputs(){
+  const transform = getActiveForegroundTransform();
+  if($("fgX")) $("fgX").value = Math.round(transform.x);
+  if($("fgY")) $("fgY").value = Math.round(transform.y);
+  if($("fgW")) $("fgW").value = Math.round(transform.width);
+  if($("fgH")) $("fgH").value = Math.round(transform.height);
+  if($("editForegroundMode")) $("editForegroundMode").checked = editForegroundMode;
+}
+
+function updateForegroundTransformFromInputs(){
+  const transform = getActiveForegroundTransform();
+  transform.x = Number($("fgX")?.value || 0);
+  transform.y = Number($("fgY")?.value || 0);
+  transform.width = Math.max(80, Number($("fgW")?.value || canvas.width));
+  transform.height = Math.max(80, Number($("fgH")?.value || canvas.height));
+  render();
+}
+
+function resetForegroundTransform(){
+  const variant = getActiveForegroundVariant();
+  if(!variant) return;
+  variant.transform = normalizeForegroundTransform(null, template.canvas);
+  syncForegroundTransformInputs();
+  render();
+  showMobileToast("Bản trên đã phủ toàn poster");
+}
+
+function fitForegroundToOriginalRatio(){
+  const variant = getActiveForegroundVariant();
+  if(!variant || !fgImg) return;
+  const scale = Math.min(canvas.width / fgImg.width, canvas.height / fgImg.height);
+  const width = Math.max(80, fgImg.width * scale);
+  const height = Math.max(80, fgImg.height * scale);
+  variant.transform = {
+    x: Math.round((canvas.width - width) / 2),
+    y: Math.round((canvas.height - height) / 2),
+    width: Math.round(width),
+    height: Math.round(height)
+  };
+  syncForegroundTransformInputs();
+  render();
+  showMobileToast("Đã giữ đúng tỷ lệ bản trên");
+}
+
 function setActiveBackgroundSource(src, file = null){
   const variant = getActiveBackgroundVariant();
   if(variant){
@@ -1239,12 +1461,16 @@ async function selectBackgroundVariant(id, { updateUrl = false } = {}){
   const nextId = normalizeBackgroundId(id);
   const variants = getBackgroundVariants();
   if(!variants.some(item => item.id === nextId)) return;
+  if(activeTab === "leader" && (leaderTextOverrides.size || leaderTempTextFields.length)){
+    resetLeaderSessionLayout({ clearTemp:true, silent:true });
+  }
   syncActiveVariantLayout();
   selectedBackgroundId = nextId;
   applyActiveVariantLayout({ rebuild:true });
   await loadActiveBackgroundImage();
   buildBackgroundSwitcher();
   buildBackgroundVariantAdmin();
+  syncForegroundTransformInputs();
   if(updateUrl) writeBackgroundRoute(nextId);
   showMobileToast(getActiveBackgroundVariant()?.label || nextId);
   render();
@@ -1479,11 +1705,15 @@ function drawPoster(){
     ctx.restore();
   }
 
-  if(fgImg) drawCover(fgImg, 0, 0, canvas.width, canvas.height);
+  if(fgImg){
+    const foreground = getActiveForegroundTransform();
+    ctx.drawImage(fgImg, foreground.x, foreground.y, foreground.width, foreground.height);
+  }
   drawDynamicText();
   if(activeTab === "leader" && leaderGuidesVisible && !exportCleanMode) drawLeaderTextGuides();
-  if(activeTab === "admin" && showTextGuides) drawTextGuides();
-  if(activeTab === "admin" && showSlot) drawPersonSlotGuide();
+  if(activeTab === "admin" && showTextGuides && !editForegroundMode) drawTextGuides();
+  if(activeTab === "admin" && showSlot && !editForegroundMode) drawPersonSlotGuide();
+  if(activeTab === "admin" && editForegroundMode && fgImg && !exportCleanMode) drawForegroundTransformGuide();
   if(personImg && activeTab === "leader" && leaderGuidesVisible && !exportCleanMode) drawPersonTransformGuide();
   if(snapState.active && !exportCleanMode) drawCenterSnapFeedback();
   positionInlineTextEditor();
@@ -1602,27 +1832,55 @@ function drawTextGuides(){
 function drawLeaderTextGuides(){
   textRenderBoxes.forEach((box, key) => {
     const isEditing = key === inlineEditorKey;
+    const isSelected = key === selectedTextKey;
     const isTemp = isLeaderTempTextKey(key);
+    const isOverride = leaderTextOverrides.has(key);
     ctx.save();
-    ctx.setLineDash([7, 9]);
-    ctx.lineWidth = isEditing ? 3 : 2;
+    ctx.setLineDash(isSelected ? [] : [7, 9]);
+    ctx.lineWidth = isEditing || isSelected ? 3 : 2;
     ctx.strokeStyle = isTemp
-      ? (isEditing ? "rgba(126,176,255,.98)" : "rgba(126,176,255,.62)")
-      : (isEditing ? "rgba(255,231,163,.95)" : "rgba(255,231,163,.36)");
+      ? (isEditing || isSelected ? "rgba(126,176,255,.98)" : "rgba(126,176,255,.62)")
+      : (isOverride ? "rgba(66,216,139,.88)" : (isEditing || isSelected ? "rgba(255,231,163,.95)" : "rgba(255,231,163,.36)"));
     ctx.fillStyle = isTemp
       ? "rgba(126,176,255,.09)"
-      : (isEditing ? "rgba(233,189,85,.12)" : "rgba(233,189,85,.035)");
+      : (isOverride ? "rgba(66,216,139,.08)" : (isEditing || isSelected ? "rgba(233,189,85,.12)" : "rgba(233,189,85,.035)"));
     ctx.fillRect(box.x, box.y, box.width, box.height);
     ctx.strokeRect(box.x, box.y, box.width, box.height);
-    if(isTemp){
-      ctx.fillStyle = "#dcebff";
+    if(isTemp || isOverride){
+      ctx.fillStyle = isTemp ? "#dcebff" : "#c9ffe1";
       ctx.font = "800 16px Inter, Arial, sans-serif";
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
-      ctx.fillText("TẠM", box.x + 8, box.y + 6);
+      ctx.fillText(isTemp ? "TẠM" : "TÙY CHỈNH", box.x + 8, box.y + 6);
     }
     ctx.restore();
   });
+}
+
+function drawForegroundTransformGuide(){
+  const transform = getActiveForegroundTransform();
+  ctx.save();
+  ctx.setLineDash([12, 8]);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "rgba(255,115,115,.98)";
+  ctx.fillStyle = "rgba(255,115,115,.06)";
+  ctx.fillRect(transform.x, transform.y, transform.width, transform.height);
+  ctx.strokeRect(transform.x, transform.y, transform.width, transform.height);
+  ctx.setLineDash([]);
+  ctx.fillStyle = "rgba(255,115,115,.98)";
+  ctx.fillRect(transform.x + transform.width - FOREGROUND_HANDLE_SIZE, transform.y + transform.height - FOREGROUND_HANDLE_SIZE, FOREGROUND_HANDLE_SIZE, FOREGROUND_HANDLE_SIZE);
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(transform.x + transform.width - FOREGROUND_HANDLE_SIZE, transform.y + transform.height - FOREGROUND_HANDLE_SIZE, FOREGROUND_HANDLE_SIZE, FOREGROUND_HANDLE_SIZE);
+  ctx.fillStyle = "rgba(5,6,10,.78)";
+  roundRect(ctx, clamp(transform.x + 12, 8, canvas.width - 220), clamp(transform.y + 12, 8, canvas.height - 48), 205, 36, 16);
+  ctx.fill();
+  ctx.fillStyle = "#ffd7d7";
+  ctx.font = "800 17px Inter, Arial, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText("BẢN TRÊN · ADMIN", clamp(transform.x + 26, 22, canvas.width - 205), clamp(transform.y + 30, 26, canvas.height - 28));
+  ctx.restore();
 }
 
 function drawPersonSlotGuide(){
@@ -2168,13 +2426,16 @@ function pointerDown(e){
     const textHit = hitTextBox(p.x, p.y);
     if(textHit){
       selectedTextKey = textHit.key;
-      if(isLeaderTempTextKey(textHit.key)){
+      syncLeaderTextStylePanel();
+      const sourceField = findTextFieldByKey(textHit.key);
+      if(sourceField?.draggable !== false){
         closeInlineTextEditor();
-        const field = findTextFieldByKey(textHit.key);
-        leaderTextPress = { key:textHit.key, x:p.x, y:p.y, fieldX:field.x, fieldY:field.y, moved:false };
+        const field = ensureLeaderTextOverride(textHit.key);
+        if(field) leaderTextPress = { key:textHit.key, x:p.x, y:p.y, fieldX:field.x, fieldY:field.y, moved:false };
       } else {
         openInlineTextEditor(textHit.key);
       }
+      render();
       return;
     }
     closeInlineTextEditor();
@@ -2182,6 +2443,20 @@ function pointerDown(e){
 
   if(activeTab === "admin"){
     closeInlineTextEditor();
+    if(editForegroundMode && fgImg){
+      const foregroundHit = hitForegroundTransform(p.x, p.y);
+      const transform = getActiveForegroundTransform();
+      if(foregroundHit === "resize"){
+        resizingForeground = true;
+        dragStart = { ...dragStart, x:p.x, y:p.y, fgX:transform.x, fgY:transform.y, fgW:transform.width, fgH:transform.height };
+        return;
+      }
+      if(foregroundHit === "body"){
+        draggingForeground = true;
+        dragStart = { ...dragStart, x:p.x, y:p.y, fgX:transform.x, fgY:transform.y, fgW:transform.width, fgH:transform.height };
+        return;
+      }
+    }
     const hit = hitTextBox(p.x, p.y, { includeTemp:false });
     if(hit){
       selectedTextKey = hit.key;
@@ -2233,11 +2508,17 @@ function pointerMove(e){
     if(!leaderTextPress.moved && Math.hypot(dx, dy) > 8){
       leaderTextPress.moved = true;
       draggingLeaderText = true;
-      showMobileToast("Đang kéo chữ tạm");
+      showMobileToast("Đang kéo chữ · chỉ áp dụng trong phiên này");
     }
     if(leaderTextPress.moved){
-      field.x = Math.round(leaderTextPress.fieldX + dx);
-      field.y = Math.round(leaderTextPress.fieldY + dy);
+      const rawX = Math.round(leaderTextPress.fieldX + dx);
+      const rawY = Math.round(leaderTextPress.fieldY + dy);
+      const snap = applyTextSnap(field, rawX);
+      field.x = snap.x;
+      field.y = rawY;
+      snapState.active = snap.snapped;
+      snapState.targetX = canvas.width / 2;
+      syncLeaderTextStylePanel();
       render();
       return;
     }
@@ -2255,6 +2536,24 @@ function pointerMove(e){
     snapState.targetX = canvas.width / 2;
     updateAdminCardValues(field);
     syncActiveVariantLayout();
+    render();
+    return;
+  }
+
+  if(draggingForeground){
+    const transform = getActiveForegroundTransform();
+    transform.x = Math.round(dragStart.fgX + (p.x - dragStart.x));
+    transform.y = Math.round(dragStart.fgY + (p.y - dragStart.y));
+    syncForegroundTransformInputs();
+    render();
+    return;
+  }
+
+  if(resizingForeground){
+    const transform = getActiveForegroundTransform();
+    transform.width = Math.max(80, Math.round(dragStart.fgW + (p.x - dragStart.x)));
+    transform.height = Math.max(80, Math.round(dragStart.fgH + (p.y - dragStart.y)));
+    syncForegroundTransformInputs();
     render();
     return;
   }
@@ -2298,12 +2597,14 @@ function pointerUp(e){
   }
   if(activePointers.size === 0){
     const pendingLeaderPress = leaderTextPress;
-    const wasDragging = draggingPerson || draggingText || draggingLeaderText || draggingSlot || resizingSlot;
+    const wasDragging = draggingPerson || draggingText || draggingLeaderText || draggingSlot || resizingSlot || draggingForeground || resizingForeground;
     draggingPerson = false;
     draggingText = false;
     draggingLeaderText = false;
     draggingSlot = false;
     resizingSlot = false;
+    draggingForeground = false;
+    resizingForeground = false;
     leaderTextPress = null;
     if(snapState.active) snapState.active = false;
     if(pendingLeaderPress && !pendingLeaderPress.moved){
@@ -2371,11 +2672,17 @@ function updateCanvasCursor(p){
   if(activeTab === "leader"){
     const leaderHit = hitTextBox(p.x, p.y);
     if(leaderHit){
-      canvas.style.cursor = isLeaderTempTextKey(leaderHit.key) ? "grab" : "text";
+      const field = findTextFieldByKey(leaderHit.key);
+      canvas.style.cursor = field?.draggable === false ? "text" : "grab";
       return;
     }
   }
   if(activeTab === "admin"){
+    if(editForegroundMode && fgImg){
+      const foregroundHit = hitForegroundTransform(p.x, p.y);
+      if(foregroundHit === "resize"){ canvas.style.cursor = "nwse-resize"; return; }
+      if(foregroundHit === "body"){ canvas.style.cursor = "move"; return; }
+    }
     const textHit = hitTextBox(p.x, p.y, { includeTemp:false });
     if(textHit){ canvas.style.cursor = "grab"; return; }
     const slotHit = hitPersonSlot(p.x, p.y);
@@ -2397,6 +2704,15 @@ function hitTextBox(x, y, { includeTemp = true } = {}){
     if(!box) continue;
     if(x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height){ return box; }
   }
+  return null;
+}
+
+function hitForegroundTransform(x, y){
+  const transform = getActiveForegroundTransform();
+  const hx = transform.x + transform.width - FOREGROUND_HANDLE_SIZE;
+  const hy = transform.y + transform.height - FOREGROUND_HANDLE_SIZE;
+  if(x >= hx && x <= hx + FOREGROUND_HANDLE_SIZE && y >= hy && y <= hy + FOREGROUND_HANDLE_SIZE) return "resize";
+  if(x >= transform.x && x <= transform.x + transform.width && y >= transform.y && y <= transform.y + transform.height) return "body";
   return null;
 }
 
@@ -2699,6 +3015,20 @@ function toHex(color){ return /^#/.test(color) ? color : '#ffffff'; }
 function isSelected(current, value){ return String(current || "") === String(value) ? "selected" : ""; }
 function escapeHtml(str){ return String(str).replace(/[&<>"']/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s])); }
 function escapeAttr(str){ return escapeHtml(str); }
+function describeTemplatePersistence(sourceTemplate){
+  const textCount = Array.isArray(sourceTemplate?.textFields) ? sourceTemplate.textFields.length : 0;
+  const bgCount = Array.isArray(sourceTemplate?.backgroundVariants) ? sourceTemplate.backgroundVariants.length : 0;
+  const fgCount = Array.isArray(sourceTemplate?.foregroundVariants) ? sourceTemplate.foregroundVariants.length : 0;
+  const fontCount = Array.isArray(sourceTemplate?.fonts) ? sourceTemplate.fonts.length : 0;
+  const transformedForegrounds = (sourceTemplate?.foregroundVariants || []).filter(item => item?.transform).length;
+  const savedLayouts = (sourceTemplate?.backgroundVariants || []).filter(item => item?.layout?.personSlot && Array.isArray(item?.layout?.textFields)).length;
+  return `<span>Đã xác nhận response DB: ${textCount} vùng chữ · ${bgCount} nền (${savedLayouts} layout riêng) · ${fgCount} bản trên (${transformedForegrounds} transform) · ${fontCount} font.</span>`;
+}
+function stripHtml(value){
+  const div = document.createElement("div");
+  div.innerHTML = String(value || "");
+  return div.textContent || div.innerText || "";
+}
 function formatDate(v){ return v ? new Date(v).toLocaleString('vi-VN') : '-'; }
 function roundRect(cx, x, y, w, h, r){
   const radius = Math.min(r, w/2, h/2);
