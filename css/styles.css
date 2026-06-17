@@ -381,7 +381,12 @@ input[type="range"]{
   gap:8px;
 }
 .background-variant-top strong{color:#ffe7a3;font-size:13px}
-.bg-filebox{margin-top:8px}
+.bg-filebox,.fg-filebox{margin-top:8px}
+.fg-filebox{
+  border-color:rgba(126,176,255,.48);
+  background:linear-gradient(135deg,rgba(126,176,255,.11),rgba(255,255,255,.035));
+  color:#dcebff;
+}
 .background-link-row{margin-top:8px}
 .background-link-row input{margin:0;min-height:38px;font-size:11px;color:#cbd2df}
 .cloud-box,.auth-status,.selected-files{

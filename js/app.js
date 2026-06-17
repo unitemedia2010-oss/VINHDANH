@@ -26,6 +26,13 @@ const DEFAULT_TEMPLATE = {
     { id: "khaipha", label: "KHAIPHA", src: "assets/unite-bg-clean.png" },
     { id: "bucpha", label: "BUCPHA", src: "assets/unite-bg-clean.png" }
   ],
+  foregroundVariants: [
+    { id: "tinhhoa", label: "TINHHOA", src: "assets/unite-foreground.png", isDefault: true },
+    { id: "kitai", label: "KITAI", src: "assets/unite-foreground.png" },
+    { id: "tienphong", label: "TIENPHONG", src: "assets/unite-foreground.png" },
+    { id: "khaipha", label: "KHAIPHA", src: "assets/unite-foreground.png" },
+    { id: "bucpha", label: "BUCPHA", src: "assets/unite-foreground.png" }
+  ],
   fonts: [],
   personSlot: {
     x: 335,
@@ -156,6 +163,7 @@ let bgSourceFile = null;
 let fgSourceFile = null;
 let selectedFontFiles = [];
 let backgroundVariantFiles = new Map();
+let foregroundVariantFiles = new Map();
 let showSlot = true;
 let leaderGuidesVisible = true;
 let showTextGuides = true;
@@ -248,6 +256,7 @@ function normalizeTemplate(t){
   t.canvas ||= { width: 1229, height: 1536 };
   t.layers ||= {};
   normalizeBackgroundVariants(t);
+  normalizeForegroundVariants(t);
   t.fonts ||= [];
   t.templateId ||= 'unite-template';
   t.templateName ||= t.templateId;
@@ -304,6 +313,43 @@ function normalizeBackgroundVariants(t){
 
   const active = getActiveBackgroundVariant(t);
   if(active?.src) t.layers.background = active.src;
+}
+
+function normalizeForegroundVariants(t){
+  const baseForeground = t.layers?.foreground || DEFAULT_TEMPLATE.layers.foreground;
+  const existing = Array.isArray(t.foregroundVariants) ? t.foregroundVariants : [];
+  const defaults = DEFAULT_TEMPLATE.foregroundVariants.map(item => ({ ...item }));
+  const merged = existing.length ? existing : defaults;
+
+  t.foregroundVariants = merged.slice(0, BACKGROUND_SLOT_LIMIT).map((item, index) => {
+    const fallback = defaults[index] || defaults[0];
+    return {
+      id: normalizeBackgroundId(fallback.id || item.id || `fg-${index + 1}`),
+      label: fallback.label || item.label || `Bản trên ${index + 1}`,
+      src: item.src || item.url || baseForeground,
+      storagePath: item.storagePath || null,
+      isDefault: Boolean(item.isDefault || index === 0)
+    };
+  });
+
+  while(t.foregroundVariants.length < BACKGROUND_SLOT_LIMIT){
+    const index = t.foregroundVariants.length;
+    const fallback = defaults[index] || defaults[0];
+    t.foregroundVariants.push({
+      id: normalizeBackgroundId(fallback.id || `fg-${index + 1}`),
+      label: fallback.label || `Bản trên ${index + 1}`,
+      src: fallback.src || baseForeground,
+      storagePath: null,
+      isDefault: index === 0
+    });
+  }
+
+  if(!t.foregroundVariants.some(item => item.isDefault)){
+    t.foregroundVariants[0].isDefault = true;
+  }
+
+  const active = getActiveForegroundVariant(t);
+  if(active?.src) t.layers.foreground = active.src;
 }
 
 async function applyCurrentTemplate(){
@@ -378,8 +424,10 @@ function bindEvents(){
     if(!file) return;
     fgSourceFile = file;
     const dataUrl = await fileToDataURL(file);
-    template.layers.foreground = dataUrl;
-    fgImg = await srcToImage(dataUrl);
+    setActiveForegroundSource(dataUrl, file);
+    fgImg = await srcToImage(dataUrl, { cache:false });
+    buildBackgroundVariantAdmin();
+    showMobileToast("Đã cập nhật bản trên đang chọn");
     render();
   });
 
@@ -562,7 +610,8 @@ async function onSaveCloud(status){
       status,
       backgroundFile: backgroundVariantFiles.size ? null : bgSourceFile,
       backgroundVariantFiles: getBackgroundVariantFilePayload(),
-      foregroundFile: fgSourceFile,
+      foregroundFile: foregroundVariantFiles.size ? null : fgSourceFile,
+      foregroundVariantFiles: getForegroundVariantFilePayload(),
       fontFiles: selectedFontFiles
     });
     template = structuredClone(saved.template_json);
@@ -571,6 +620,7 @@ async function onSaveCloud(status){
     await refreshCloudTemplates();
     selectedCloudSlug = saved.slug;
     backgroundVariantFiles.clear();
+    foregroundVariantFiles.clear();
     bgSourceFile = null;
     fgSourceFile = null;
     selectedFontFiles = [];
@@ -794,19 +844,28 @@ function resetDragAndSnap(){
 
 async function loadTemplateImages(){
   const bgSrc = getActiveBackgroundSrc();
+  const fgSrc = getActiveForegroundSrc();
   template.layers.background = bgSrc || template.layers.background;
+  template.layers.foreground = fgSrc || template.layers.foreground;
   [bgImg, fgImg] = await Promise.all([
     bgSrc ? srcToImage(bgSrc) : null,
-    template.layers.foreground ? srcToImage(template.layers.foreground) : null
+    fgSrc ? srcToImage(fgSrc) : null
   ]);
   preloadBackgroundVariants();
+  preloadForegroundVariants();
 }
 
 async function loadActiveBackgroundImage(){
   const bgSrc = getActiveBackgroundSrc();
+  const fgSrc = getActiveForegroundSrc();
   template.layers.background = bgSrc || template.layers.background;
-  bgImg = bgSrc ? await srcToImage(bgSrc) : null;
+  template.layers.foreground = fgSrc || template.layers.foreground;
+  [bgImg, fgImg] = await Promise.all([
+    bgSrc ? srcToImage(bgSrc) : null,
+    fgSrc ? srcToImage(fgSrc) : null
+  ]);
   preloadBackgroundVariants();
+  preloadForegroundVariants();
 }
 
 function buildForms(){
@@ -866,7 +925,11 @@ function buildBackgroundVariantAdmin(){
       </div>
       <label class="filebox small bg-filebox">
         <input data-bg-action="file" type="file" accept="image/*">
-        <span>Upload nền link ${index + 1}</span>
+        <span>Upload nền dưới link ${index + 1}</span>
+      </label>
+      <label class="filebox small fg-filebox">
+        <input data-fg-action="file" type="file" accept="image/*">
+        <span>Upload bản trên PNG link ${index + 1}</span>
       </label>
       <div class="background-link-row">
         <input data-bg-field="link" type="text" value="${escapeAttr(buildBackgroundLink(variant.id))}" readonly>
@@ -890,6 +953,19 @@ function buildBackgroundVariantAdmin(){
       buildBackgroundSwitcher();
       buildBackgroundVariantAdmin();
       showMobileToast(`Đã cập nhật ${variant.label || variant.id}`);
+    });
+    card.querySelector('[data-fg-action="file"]').addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if(!file) return;
+      const dataUrl = await fileToDataURL(file);
+      setForegroundVariantSource(variant.id, dataUrl, file);
+      if(variant.id === selectedBackgroundId){
+        template.layers.foreground = dataUrl;
+        fgImg = await srcToImage(dataUrl, { cache:false });
+        render();
+      }
+      buildBackgroundVariantAdmin();
+      showMobileToast(`Đã cập nhật bản trên ${variant.label || variant.id}`);
     });
 
     card.querySelectorAll('[data-bg-field]').forEach((input) => {
@@ -916,6 +992,10 @@ function updateBackgroundVariantField(variant, input, { rebuildAdmin = true } = 
       backgroundVariantFiles.set(nextId, backgroundVariantFiles.get(oldId));
       backgroundVariantFiles.delete(oldId);
     }
+    if(foregroundVariantFiles.has(oldId)){
+      foregroundVariantFiles.set(nextId, foregroundVariantFiles.get(oldId));
+      foregroundVariantFiles.delete(oldId);
+    }
   }
   buildBackgroundSwitcher();
   if(rebuildAdmin) buildBackgroundVariantAdmin();
@@ -940,6 +1020,19 @@ function getActiveBackgroundSrc(){
   return getActiveBackgroundVariant()?.src || template.layers?.background || "";
 }
 
+function getForegroundVariants(sourceTemplate = template){
+  return Array.isArray(sourceTemplate.foregroundVariants) ? sourceTemplate.foregroundVariants.slice(0, BACKGROUND_SLOT_LIMIT) : [];
+}
+
+function getActiveForegroundVariant(sourceTemplate = template){
+  const variants = getForegroundVariants(sourceTemplate);
+  return variants.find(item => item.id === selectedBackgroundId) || variants.find(item => item.isDefault) || variants[0] || null;
+}
+
+function getActiveForegroundSrc(){
+  return getActiveForegroundVariant()?.src || template.layers?.foreground || "";
+}
+
 function setActiveBackgroundSource(src, file = null){
   const variant = getActiveBackgroundVariant();
   if(variant){
@@ -947,6 +1040,23 @@ function setActiveBackgroundSource(src, file = null){
     if(file) backgroundVariantFiles.set(variant.id, file);
   }
   template.layers.background = src;
+}
+
+function setForegroundVariantSource(id, src, file = null){
+  const variant = getForegroundVariants().find(item => item.id === id);
+  if(variant){
+    variant.src = src;
+    if(file) foregroundVariantFiles.set(variant.id, file);
+  }
+}
+
+function setActiveForegroundSource(src, file = null){
+  const variant = getActiveForegroundVariant();
+  if(variant){
+    variant.src = src;
+    if(file) foregroundVariantFiles.set(variant.id, file);
+  }
+  template.layers.foreground = src;
 }
 
 async function selectBackgroundVariant(id, { updateUrl = false } = {}){
@@ -964,6 +1074,10 @@ async function selectBackgroundVariant(id, { updateUrl = false } = {}){
 
 function getBackgroundVariantFilePayload(){
   return [...backgroundVariantFiles.entries()].map(([id, file]) => ({ id, file })).filter(item => item.file);
+}
+
+function getForegroundVariantFilePayload(){
+  return [...foregroundVariantFiles.entries()].map(([id, file]) => ({ id, file })).filter(item => item.file);
 }
 
 function buildBackgroundLink(id){
@@ -2290,6 +2404,13 @@ function preloadBackgroundVariants(){
     .map(item => item.src)
     .filter(Boolean)
     .filter(src => src !== getActiveBackgroundSrc())
+    .forEach(src => srcToImage(src, { priority:"low" }).catch(() => {}));
+}
+function preloadForegroundVariants(){
+  getForegroundVariants()
+    .map(item => item.src)
+    .filter(Boolean)
+    .filter(src => src !== getActiveForegroundSrc())
     .forEach(src => srcToImage(src, { priority:"low" }).catch(() => {}));
 }
 function preloadRemoveBgModule(){

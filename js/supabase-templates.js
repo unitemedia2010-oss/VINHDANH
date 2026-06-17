@@ -106,6 +106,7 @@ export async function saveTemplateToSupabase({
   backgroundFile = null,
   backgroundVariantFiles = [],
   foregroundFile = null,
+  foregroundVariantFiles = [],
   fontFiles = []
 }) {
   const profile = await assertAdmin();
@@ -144,6 +145,21 @@ export async function saveTemplateToSupabase({
     const fg = await uploadPosterAsset(foregroundFile, `templates/${slug}`, "foreground");
     workingTemplate.layers.foreground = fg.publicUrl;
     uploadedAssets.push(fg);
+  }
+
+  const foregroundFiles = Array.isArray(foregroundVariantFiles) ? foregroundVariantFiles : [];
+  if (foregroundFiles.length && Array.isArray(workingTemplate.foregroundVariants)) {
+    for (const item of foregroundFiles) {
+      if (!item?.id || !item?.file) continue;
+      const variant = workingTemplate.foregroundVariants.find(fg => fg.id === item.id);
+      if (!variant) continue;
+      const fg = await uploadPosterAsset(item.file, `templates/${slug}/foregrounds`, "foreground");
+      variant.src = fg.publicUrl;
+      variant.storagePath = fg.storagePath;
+      uploadedAssets.push(fg);
+    }
+    const defaultVariant = workingTemplate.foregroundVariants.find(fg => fg.isDefault) || workingTemplate.foregroundVariants[0];
+    if (defaultVariant?.src) workingTemplate.layers.foreground = defaultVariant.src;
   }
 
   for (const file of fontFiles) {
