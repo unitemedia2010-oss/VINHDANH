@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Unite Poster Studio Pro v6.1.7</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" as="image" href="assets/unite-bg-clean.png" fetchpriority="high">
+  <link rel="preload" as="image" href="assets/unite-foreground.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Montserrat:wght@600;700;800;900&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand-block">
+      <img id="brandAdminTrigger" class="brand-logo" src="assets/unite-group-logo.png" alt="Unite Group" title="Nhấn để chuyển Admin/Poster" role="button" tabindex="0" />
+      <div>
+        <h1>Unite Poster Studio</h1>
+        <p>Giao diện tối giản, tối ưu thao tác nhanh trên điện thoại và iPhone.</p>
+      </div>
+    </div>
+
+  </header>
+
+  <main class="workspace">
+    <section class="stage-wrap preview-card">
+      <div class="stage-head">
+        <div>
+          <strong>Preview poster</strong>
+          <span id="canvasSize"></span>
+        </div>
+        <div class="stage-head-actions compact-preview-actions">
+          <button id="btnToggleGuides" type="button" class="soft mini stage-guide-btn active">Khung: Bật</button>
+          <span id="cloudStatus" class="pill compact-pill">Cloud: đang kiểm tra...</span>
+          <button id="btnSharePoster" class="soft mini compact-action-btn">Chia sẻ</button>
+          <button id="btnExport" class="primary compact-action-btn">Xuất PNG</button>
+          <span id="canvasHint" class="hint visually-hidden">Kéo avatar bằng 1 ngón, chụm 2 ngón để zoom.</span>
+        </div>
+      </div>
+
+      <div class="canvas-shell">
+        <canvas id="posterCanvas"></canvas>
+        <textarea id="canvasTextEditor" class="canvas-text-editor" rows="1" autocomplete="off" autocapitalize="characters" spellcheck="false" hidden></textarea>
+        <div class="mobile-toast" id="mobileToast">Kéo avatar • Chụm 2 ngón để zoom</div>
+      </div>
+
+      <div id="iosSavePanel" class="ios-save-panel" hidden>
+        <div class="ios-save-copy"><b>iPhone/iPad:</b> nếu bảng chia sẻ không mở, hãy mở ảnh poster rồi nhấn giữ ảnh để chọn <b>Lưu vào Ảnh</b>.</div>
+        <button id="btnHideIosTip" type="button" class="ios-tip-close" aria-label="Ẩn hướng dẫn lưu ảnh">Ẩn</button>
+      </div>
+    </section>
+
+    <section class="editor-panel panel controls">
+      <div class="tabs segmented-tabs" aria-label="Chọn chế độ">
+        <button class="tab active" data-tab="leader">Tạo poster</button>
+        <button class="tab" data-tab="admin">Admin</button>
+      </div>
+
+      <div id="leaderTab" class="tab-pane active">
+        <details class="section-card mobile-card" open>
+          <summary>
+            <span>
+              <b>01</b>
+              <strong>Ảnh nhân sự</strong>
+            </span>
+            <em>Upload, xóa nền, tự căn</em>
+          </summary>
+
+          <label class="filebox hero-upload">
+            <input id="personUpload" type="file" accept="image/*" />
+            <span>Chọn ảnh nhân sự</span>
+          </label>
+
+          <div class="quick-actions">
+            <button id="btnRemoveBg" class="soft">Xóa nền AI</button>
+            <button id="btnAutoFit" class="soft">Tự căn</button>
+            <button id="btnMobileFit" class="soft">Canh mobile</button>
+          </div>
+
+          <div id="removeBgProgressCard" class="progress-card" hidden>
+            <div class="progress-card-top">
+              <div>
+                <strong id="removeBgStepTitle">Sẵn sàng xóa nền</strong>
+                <p id="removeBgStepHint">Tool sẽ hiện tiến trình rõ ràng từng bước để dễ theo dõi trên điện thoại.</p>
+              </div>
+              <span id="removeBgPercentBadge" class="progress-badge">0%</span>
+            </div>
+            <div class="progress-bar-shell" aria-hidden="true">
+              <div id="removeBgProgressBar" class="progress-bar-fill"></div>
+            </div>
+            <div class="progress-steps" id="removeBgSteps">
+              <span data-step="prepare" class="step-chip active">1. Chuẩn bị ảnh</span>
+              <span data-step="download" class="step-chip">2. Tải AI</span>
+              <span data-step="segment" class="step-chip">3. Tách nền</span>
+              <span data-step="done" class="step-chip">4. Hoàn tất</span>
+            </div>
+          </div>
+          <p id="removeBgStatus" class="note">AI sẽ tự nén ảnh để iPhone xử lý nhẹ hơn. Nếu model lỗi, tool tự chuyển sang fallback xóa nền cơ bản.</p>
+          <div class="touch-tip">Kéo trực tiếp trên poster để đổi vị trí avatar. Chụm hai ngón để phóng to hoặc thu nhỏ.</div>
+        </details>
+
+        <details class="section-card mobile-card" open>
+          <summary>
+            <span>
+              <b>02</b>
+              <strong>Kích thước & vị trí</strong>
+            </span>
+            <em>Kéo tay hoặc chỉnh số</em>
+          </summary>
+
+          <div class="range-list">
+            <label>Phóng to / thu nhỏ
+              <input id="scaleRange" type="range" min="0.2" max="3" step="0.01" value="1" />
+            </label>
+          </div>
+
+          <div class="nudge-grid compact-nudge">
+            <span></span><button data-nudge="up">↑</button><span></span>
+            <button data-nudge="left">←</button><button data-nudge="reset">Reset</button><button data-nudge="right">→</button>
+            <span></span><button data-nudge="down">↓</button><span></span>
+          </div>
+        </details>
+
+        <details class="section-card mobile-card">
+          <summary>
+            <span>
+              <b>03</b>
+              <strong>Màu ảnh</strong>
+            </span>
+            <em>Sáng, tương phản, nhiệt màu</em>
+          </summary>
+
+          <div class="range-list two-col-ranges">
+            <label>Làm sáng
+              <input id="brightnessRange" type="range" min="60" max="150" step="1" value="100" />
+            </label>
+            <label>Tương phản
+              <input id="contrastRange" type="range" min="70" max="150" step="1" value="100" />
+            </label>
+            <label>Độ rực màu
+              <input id="saturationRange" type="range" min="50" max="170" step="1" value="100" />
+            </label>
+            <label>Nhiệt màu <span class="range-value" id="temperatureValue">0</span>
+              <input id="temperatureRange" type="range" min="-100" max="100" step="1" value="0" />
+            </label>
+            <label>Tint xanh/hồng <span class="range-value" id="tintValue">0</span>
+              <input id="tintRange" type="range" min="-80" max="80" step="1" value="0" />
+            </label>
+            <label>Làm nét nhẹ <span class="range-value" id="sharpnessValue">0</span>
+              <input id="sharpnessRange" type="range" min="0" max="60" step="1" value="0" />
+            </label>
+          </div>
+
+          <button id="btnResetTone" class="soft full-btn">Reset màu ảnh</button>
+        </details>
+
+        <details class="section-card mobile-card" open>
+          <summary>
+            <span>
+              <b>04</b>
+              <strong>Nội dung chữ</strong>
+            </span>
+            <em>Tên, team, danh hiệu</em>
+          </summary>
+          <div id="textForm" class="text-form"></div>
+        </details>
+
+        <details class="section-card mobile-card" open>
+          <summary>
+            <span>
+              <b>05</b>
+              <strong>Nền / link màu</strong>
+            </span>
+            <em>5 trang nhanh</em>
+          </summary>
+          <div id="backgroundSwitcher" class="background-switcher"></div>
+        </details>
+
+        <details class="section-card mobile-card subtle-card">
+          <summary>
+            <span>
+              <b>06</b>
+              <strong>Template cloud</strong>
+            </span>
+            <em>Active template</em>
+          </summary>
+          <div class="section-head slim-head">
+            <h2>Template đang dùng</h2>
+            <button id="btnReloadActiveCloud" class="soft mini">Load active</button>
+          </div>
+          <div id="publicTemplateInfo" class="cloud-box mini-box">Chưa có dữ liệu template cloud.</div>
+        </details>
+      </div>
+
+      <div id="adminTab" class="tab-pane">
+        <details class="section-card mobile-card" open>
+          <summary><span><b>A1</b><strong>Đăng nhập Admin</strong></span><em>Supabase</em></summary>
+          <div class="section-head slim-head">
+            <h2>Supabase Admin</h2>
+            <button id="btnRefreshProfile" class="soft mini">Kiểm tra</button>
+          </div>
+          <div id="authStatus" class="auth-status">Chưa đăng nhập admin.</div>
+          <div class="grid2 auth-grid">
+            <label>Email admin
+              <input id="adminEmail" type="text" placeholder="vd: nguyenphitruong1807@gmail.com" />
+            </label>
+            <label>Mật khẩu
+              <input id="adminPassword" type="password" placeholder="Nhập mật khẩu Supabase Auth" />
+            </label>
+          </div>
+          <div class="row two">
+            <button id="btnAdminLogin" class="primary ghost-gold">Đăng nhập</button>
+            <button id="btnAdminLogout" class="soft">Đăng xuất</button>
+          </div>
+          <p class="note">Chỉ tài khoản có role = admin trong bảng profiles mới lưu template hoặc upload file cloud.</p>
+        </details>
+
+        <details class="section-card mobile-card">
+          <summary><span><b>A2</b><strong>Cloud template</strong></span><em>Draft / Active</em></summary>
+          <div class="section-head slim-head">
+            <h2>Danh sách template</h2>
+            <div class="row-actions">
+              <button id="btnReloadCloudList" class="soft mini">Làm mới</button>
+              <button id="btnLoadSelectedCloud" class="soft mini">Nạp</button>
+            </div>
+          </div>
+          <div id="cloudTemplatesList" class="cloud-list"></div>
+        </details>
+
+        <details class="section-card mobile-card">
+          <summary><span><b>A3</b><strong>Thông tin & file</strong></span><em>Slug, layer, font</em></summary>
+          <div class="grid2">
+            <label>Template ID / slug
+              <input id="templateIdInput" type="text" />
+            </label>
+            <label>Tên template
+              <input id="templateNameInput" type="text" />
+            </label>
+          </div>
+
+          <div class="divider"></div>
+
+          <label class="filebox small">
+            <input id="templateUpload" type="file" accept="application/json" />
+            <span>Import template JSON</span>
+          </label>
+          <div class="row two">
+            <button id="btnDownloadTemplate" class="soft">Tải JSON</button>
+            <button id="btnSaveLocal" class="soft">Lưu local</button>
+          </div>
+
+          <div class="divider"></div>
+
+          <label class="filebox small">
+            <input id="bgUpload" type="file" accept="image/*" />
+            <span>Upload background</span>
+          </label>
+          <div class="background-admin-wrap">
+            <div class="section-head slim-head">
+              <h2>5 nền / 5 link</h2>
+            </div>
+            <div id="backgroundVariantAdmin" class="background-variant-admin"></div>
+          </div>
+          <label class="filebox small">
+            <input id="fgUpload" type="file" accept="image/*" />
+            <span>Upload foreground / bảng tên PNG</span>
+          </label>
+          <label class="filebox small">
+            <input id="fontUpload" type="file" accept=".woff2,.woff,.ttf,.otf" multiple />
+            <span>Upload font riêng</span>
+          </label>
+          <div id="fontFilesInfo" class="selected-files">Chưa chọn font nào.</div>
+          <div class="row three">
+            <button id="btnSaveCloudDraft" class="soft">Lưu Draft</button>
+            <button id="btnSaveCloudActive" class="primary ghost-gold">Lưu Active</button>
+            <button id="btnArchiveCloud" class="soft danger">Archive</button>
+          </div>
+        </details>
+
+        <details class="section-card mobile-card">
+          <summary><span><b>A4</b><strong>Vùng avatar</strong></span><em>Person slot</em></summary>
+          <div class="grid4">
+            <label>X <input id="slotX" type="number" /></label>
+            <label>Y <input id="slotY" type="number" /></label>
+            <label>W <input id="slotW" type="number" /></label>
+            <label>H <input id="slotH" type="number" /></label>
+          </div>
+          <label class="check"><input id="showSlot" type="checkbox" checked /> Hiện khung vùng người</label>
+          <label class="check"><input id="showTextGuides" type="checkbox" checked /> Hiện khung chữ để kéo thả</label>
+        </details>
+
+        <details class="section-card mobile-card">
+          <summary><span><b>A5</b><strong>Style chữ</strong></span><em>Font, màu, vị trí</em></summary>
+          <div id="adminTextFields" class="admin-fields"></div>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>Unite Poster Studio Pro v6 · Background → Avatar → Foreground → Text</span>
+  </footer>
+
+  <script src="js/app.js" type="module"></script>
+</body>
+</html>
