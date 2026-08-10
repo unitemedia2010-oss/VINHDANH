@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Unite Poster Studio Pro v6.2.2</title>
+  <title>Unite Poster Studio Pro v6.3</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" as="image" href="assets/unite-bg-clean.png" fetchpriority="high">
   <link rel="preload" as="image" href="assets/unite-foreground.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Montserrat:wght@600;700;800;900&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=20260617-layout-fix-621" />
+  <link rel="stylesheet" href="css/styles.css?v=20260810-circle-crop-630" />
 </head>
 <body>
   <header class="app-header">
@@ -62,19 +62,28 @@
           <summary>
             <span>
               <b>01</b>
-              <strong>Ảnh nhân sự</strong>
+              <strong>Ảnh chân dung</strong>
             </span>
-            <em>Upload, xóa nền, tự căn</em>
+            <em>Cắt tròn nhanh, không cần AI</em>
           </summary>
 
           <label class="filebox hero-upload">
             <input id="personUpload" type="file" accept="image/*" />
-            <span>Chọn ảnh nhân sự</span>
+            <span>Chọn ảnh chân dung</span>
           </label>
+
+          <button id="btnCircleCrop" type="button" class="crop-mode-toggle active" aria-pressed="true">
+            <span class="crop-mode-icon" aria-hidden="true"></span>
+            <span class="crop-mode-copy">
+              <strong>Cắt tròn theo vòng lá</strong>
+              <small>Giữ nguyên nền ảnh, kéo và phóng để căn khuôn mặt</small>
+            </span>
+            <em data-crop-state>ĐANG BẬT</em>
+          </button>
 
           <div class="quick-actions">
             <button id="btnRemoveBg" class="soft">Xóa nền AI</button>
-            <button id="btnAutoFit" class="soft">Tự căn</button>
+            <button id="btnAutoFit" class="soft">Căn vào vòng</button>
             <button id="btnMobileFit" class="soft">Canh mobile</button>
           </div>
 
@@ -96,8 +105,8 @@
               <span data-step="done" class="step-chip">4. Hoàn tất</span>
             </div>
           </div>
-          <p id="removeBgStatus" class="note">AI sẽ tự nén ảnh để iPhone xử lý nhẹ hơn. Nếu model lỗi, tool tự chuyển sang fallback xóa nền cơ bản.</p>
-          <div class="touch-tip">Kéo trực tiếp trên poster để đổi vị trí avatar. Chụm hai ngón để phóng to hoặc thu nhỏ.</div>
+          <p id="removeBgStatus" class="note"><b>Cách nhanh:</b> giữ Cắt tròn bật là dùng ngay, không cần chờ AI. Xóa nền AI chỉ dùng khi muốn nhân vật tách khỏi nền ảnh.</p>
+          <div class="touch-tip">Ảnh sẽ nằm trong vòng lá vàng. Kéo một ngón để căn khuôn mặt; chụm hai ngón để phóng to hoặc thu nhỏ.</div>
         </details>
 
         <details class="section-card mobile-card" open>
@@ -110,7 +119,7 @@
           </summary>
 
           <div class="range-list">
-            <label>Phóng to / thu nhỏ
+            <label>Phóng ảnh trong vòng
               <input id="scaleRange" type="range" min="0.2" max="3" step="0.01" value="1" />
             </label>
           </div>
@@ -208,7 +217,7 @@
           <div id="authStatus" class="auth-status">Chưa đăng nhập admin.</div>
           <div class="grid2 auth-grid">
             <label>Email admin
-              <input id="adminEmail" type="text" placeholder="vd: nguyenphitruong1807@gmail.com" />
+              <input id="adminEmail" type="text" placeholder="vd: admin@example.com" />
             </label>
             <label>Mật khẩu
               <input id="adminPassword" type="password" placeholder="Nhập mật khẩu Supabase Auth" />
@@ -284,12 +293,22 @@
         </details>
 
         <details class="section-card mobile-card">
-          <summary><span><b>A4</b><strong>Vùng avatar</strong></span><em>Person slot</em></summary>
+          <summary><span><b>A4</b><strong>Vùng ảnh & khung tròn</strong></span><em>Thiết lập riêng theo từng nền</em></summary>
           <div class="grid4">
             <label>X <input id="slotX" type="number" /></label>
             <label>Y <input id="slotY" type="number" /></label>
             <label>W <input id="slotW" type="number" /></label>
             <label>H <input id="slotH" type="number" /></label>
+          </div>
+          <div class="admin-crop-settings">
+            <label class="check"><input id="circleCropEnabled" type="checkbox" checked /> Bật cắt ảnh tròn cho nền này</label>
+            <div class="grid4 crop-grid">
+              <label>Tâm X <input id="cropCenterX" type="number" /></label>
+              <label>Tâm Y <input id="cropCenterY" type="number" /></label>
+              <label>Bán kính <input id="cropRadius" type="number" min="80" /></label>
+              <button id="btnResetCropCircle" type="button" class="soft mini crop-reset-btn">Khớp vòng lá</button>
+            </div>
+            <p class="note">Kéo vòng tròn trực tiếp trên poster để đổi tâm; kéo ô vuông chéo phải-dưới để đổi bán kính.</p>
           </div>
           <label class="check"><input id="showSlot" type="checkbox" checked /> Hiện khung vùng người</label>
           <label class="check"><input id="showTextGuides" type="checkbox" checked /> Hiện khung chữ để kéo thả</label>
@@ -308,9 +327,9 @@
   </main>
 
   <footer class="footer">
-    <span>Unite Poster Studio Pro v6.2.2 · Background → Avatar → Foreground → Text</span>
+    <span>Unite Poster Studio Pro v6.3 · Background → Ảnh tròn → Khung lá → Bảng tên → Text</span>
   </footer>
 
-  <script src="js/app.js?v=20260617-layout-fix-621" type="module"></script>
+  <script src="js/app.js?v=20260810-circle-crop-630" type="module"></script>
 </body>
 </html>

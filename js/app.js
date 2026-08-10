@@ -40,7 +40,14 @@ const DEFAULT_TEMPLATE = {
     width: 560,
     height: 650,
     fitMode: "head_to_belly",
-    bottomSafeY: 1070
+    bottomSafeY: 1070,
+    cropMode: "circle",
+    cropCircle: {
+      centerX: 608,
+      centerY: 779,
+      radius: 350,
+      overlaySrc: "assets/unite-portrait-frame-overlay.png"
+    }
   },
   textFields: [
     {
@@ -220,6 +227,7 @@ const CORE_TEXT_KEYS = ["awardTitle", "month", "name", "team", "subline", "campa
 let template = structuredClone(DEFAULT_TEMPLATE);
 let bgImg = null;
 let fgImg = null;
+let portraitFrameImg = null;
 let personImg = null;
 let personSourceFile = null;
 let bgSourceFile = null;
@@ -250,7 +258,7 @@ let hideToastTimer = null;
 const activePointers = new Map();
 let pinchState = null;
 let selectedTextKey = "awardTitle";
-let dragStart = { x:0, y:0, px:0, py:0, fieldX:0, fieldY:0, slotX:0, slotY:0, slotW:0, slotH:0, fgX:0, fgY:0, fgW:0, fgH:0 };
+let dragStart = { x:0, y:0, px:0, py:0, fieldX:0, fieldY:0, slotX:0, slotY:0, slotW:0, slotH:0, cropX:0, cropY:0, cropRadius:0, fgX:0, fgY:0, fgW:0, fgH:0 };
 let textRenderBoxes = new Map();
 let snapState = { active:false, targetX:0, label:"Đã canh giữa" };
 let renderFrame = 0;
@@ -317,6 +325,7 @@ async function init(){
   await applyCurrentTemplate();
   syncLeaderGuideButton();
   syncModeSwitchButton();
+  syncCircleCropUI();
   syncCompactToolbarLabels();
   scheduleIdleTask(() => preloadBackgroundVariants(), 500);
   scheduleIdleTask(() => preloadRemoveBgModule(), 1400);
@@ -331,7 +340,7 @@ function normalizeTemplate(t){
   t.fonts ||= [];
   t.templateId ||= 'unite-template';
   t.templateName ||= t.templateId;
-  t.personSlot ||= { x: 335, y: 420, width: 560, height: 650, fitMode: "head_to_belly", bottomSafeY: 1070 };
+  t.personSlot = normalizePersonSlot(t.personSlot, t.canvas);
   t.textFields ||= [];
   ensureRequiredDefaultFields(t);
   t.textFields.forEach(field => {
@@ -344,6 +353,43 @@ function normalizeTemplate(t){
   });
   normalizeVariantLayouts(t);
   applyActiveVariantLayout({ rebuild: false });
+}
+
+function normalizePersonSlot(slot, canvasDef = template.canvas){
+  const fallback = DEFAULT_TEMPLATE.personSlot;
+  const canvasWidth = Math.max(1, Number(canvasDef?.width || canvas.width || 1229));
+  const canvasHeight = Math.max(1, Number(canvasDef?.height || canvas.height || 1536));
+  const numberOr = (value, fallbackValue) => Number.isFinite(Number(value)) ? Number(value) : fallbackValue;
+  const x = numberOr(slot?.x, fallback.x);
+  const y = numberOr(slot?.y, fallback.y);
+  const width = Math.max(120, numberOr(slot?.width, fallback.width));
+  const height = Math.max(120, numberOr(slot?.height, fallback.height));
+  const defaultCircle = {
+    centerX: numberOr(fallback.cropCircle?.centerX, x + width / 2) * (canvasWidth / DEFAULT_TEMPLATE.canvas.width),
+    centerY: numberOr(fallback.cropCircle?.centerY, y + height / 2) * (canvasHeight / DEFAULT_TEMPLATE.canvas.height),
+    radius: numberOr(fallback.cropCircle?.radius, Math.min(width, height) / 2) * (canvasWidth / DEFAULT_TEMPLATE.canvas.width)
+  };
+  const circle = slot?.cropCircle || {};
+  const requestedOverlaySrc = typeof circle.overlaySrc === "string" ? circle.overlaySrc.trim() : "";
+  const overlaySrc = !requestedOverlaySrc || requestedOverlaySrc === "assets/unite-portrait-frame.png"
+    ? (fallback.cropCircle?.overlaySrc || "")
+    : requestedOverlaySrc;
+  return {
+    ...structuredClone(slot || {}),
+    x,
+    y,
+    width,
+    height,
+    fitMode: slot?.fitMode || fallback.fitMode,
+    bottomSafeY: numberOr(slot?.bottomSafeY, y + height),
+    cropMode: slot?.cropMode === "none" ? "none" : "circle",
+    cropCircle: {
+      centerX: clamp(numberOr(circle.centerX, defaultCircle.centerX), 0, canvasWidth),
+      centerY: clamp(numberOr(circle.centerY, defaultCircle.centerY), 0, canvasHeight),
+      radius: clamp(numberOr(circle.radius, defaultCircle.radius), 80, Math.max(canvasWidth, canvasHeight)),
+      overlaySrc
+    }
+  };
 }
 
 function normalizeBackgroundVariants(t){
@@ -456,17 +502,17 @@ function normalizeVariantLayouts(t){
 
 function makeLayoutSnapshot(sourceTemplate = template){
   return {
-    personSlot: structuredClone(sourceTemplate.personSlot || DEFAULT_TEMPLATE.personSlot),
+    personSlot: structuredClone(normalizePersonSlot(sourceTemplate.personSlot, sourceTemplate.canvas)),
     textFields: structuredClone(sourceTemplate.textFields || DEFAULT_TEMPLATE.textFields)
   };
 }
 
 function normalizeLayoutSnapshot(layout, fallbackLayout = makeLayoutSnapshot()){
   const next = {
-    personSlot: structuredClone(layout?.personSlot || fallbackLayout.personSlot),
+    personSlot: normalizePersonSlot(layout?.personSlot || fallbackLayout.personSlot, template.canvas),
     textFields: structuredClone(Array.isArray(layout?.textFields) ? layout.textFields : fallbackLayout.textFields)
   };
-  next.personSlot ||= structuredClone(DEFAULT_TEMPLATE.personSlot);
+  next.personSlot = normalizePersonSlot(next.personSlot, template.canvas);
   next.textFields ||= structuredClone(DEFAULT_TEMPLATE.textFields);
   next.textFields.forEach(field => {
     if(field.draggable === undefined) field.draggable = true;
@@ -495,6 +541,7 @@ function applyActiveVariantLayout({ rebuild = true } = {}){
     ensureTextValues();
     buildForms();
     syncSlotInputs();
+    syncCircleCropUI();
     syncAdminTextCards();
   }
 }
@@ -653,8 +700,12 @@ function bindEvents(){
     invalidatePersonCache();
     resetToneControls(false);
     autoFitPerson();
-    setRemoveBgStatus("Đã nạp ảnh. Có thể kéo trực tiếp trên poster hoặc chụm 2 ngón để zoom.");
-    showMobileToast("Kéo avatar bằng 1 ngón • Chụm 2 ngón để zoom");
+    setRemoveBgStatus(isCircleCropEnabled()
+      ? "Đã nạp ảnh và cắt tròn theo vòng lá. Không cần chờ AI; hãy kéo hoặc chụm để căn khuôn mặt."
+      : "Đã nạp ảnh. Có thể kéo trực tiếp trên poster hoặc chụm 2 ngón để zoom.");
+    showMobileToast(isCircleCropEnabled()
+      ? "Đã cắt tròn • Kéo ảnh để căn khuôn mặt"
+      : "Kéo avatar bằng 1 ngón • Chụm 2 ngón để zoom");
     render();
   });
 
@@ -712,6 +763,7 @@ function bindEvents(){
 
   $("btnAutoFit").addEventListener("click", () => { autoFitPerson(); render(); showMobileToast("Đã tự căn vào khung avatar"); });
   $("btnMobileFit").addEventListener("click", () => { mobileQuickFit(); render(); });
+  if($("btnCircleCrop")) $("btnCircleCrop").addEventListener("click", () => setCircleCropEnabled(!isCircleCropEnabled()));
   $("btnExport").addEventListener("click", handleTopPrimaryAction);
   $("btnSharePoster").addEventListener("click", handleTopSecondaryAction);
   $("btnRemoveBg").addEventListener("click", removeBackgroundInBrowser);
@@ -740,6 +792,11 @@ function bindEvents(){
   $("showSlot").addEventListener("change", e => { showSlot = e.target.checked; render(); });
   $("showTextGuides").addEventListener("change", e => { showTextGuides = e.target.checked; render(); });
   ["slotX","slotY","slotW","slotH"].forEach(id => $(id).addEventListener("input", updateSlotFromInputs));
+  if($("circleCropEnabled")) $("circleCropEnabled").addEventListener("change", e => setCircleCropEnabled(e.target.checked));
+  ["cropCenterX","cropCenterY","cropRadius"].forEach(id => {
+    if($(id)) $(id).addEventListener("input", updateCircleCropFromInputs);
+  });
+  if($("btnResetCropCircle")) $("btnResetCropCircle").addEventListener("click", resetCircleCropFromSlot);
   if($("editForegroundMode")) $("editForegroundMode").addEventListener("change", e => {
     editForegroundMode = e.target.checked;
     resetDragAndSnap();
@@ -1124,11 +1181,13 @@ function resetDragAndSnap(){
 async function loadTemplateImages(){
   const bgSrc = getActiveBackgroundSrc();
   const fgSrc = getActiveForegroundSrc();
+  const portraitFrameSrc = getCircleCrop().overlaySrc;
   template.layers.background = bgSrc || template.layers.background;
   template.layers.foreground = fgSrc || template.layers.foreground;
-  [bgImg, fgImg] = await Promise.all([
+  [bgImg, fgImg, portraitFrameImg] = await Promise.all([
     bgSrc ? srcToImage(bgSrc) : null,
-    fgSrc ? srcToImage(fgSrc) : null
+    fgSrc ? srcToImage(fgSrc) : null,
+    portraitFrameSrc ? srcToImage(portraitFrameSrc).catch(() => null) : null
   ]);
   preloadBackgroundVariants();
   preloadForegroundVariants();
@@ -1137,11 +1196,13 @@ async function loadTemplateImages(){
 async function loadActiveBackgroundImage(){
   const bgSrc = getActiveBackgroundSrc();
   const fgSrc = getActiveForegroundSrc();
+  const portraitFrameSrc = getCircleCrop().overlaySrc;
   template.layers.background = bgSrc || template.layers.background;
   template.layers.foreground = fgSrc || template.layers.foreground;
-  [bgImg, fgImg] = await Promise.all([
+  [bgImg, fgImg, portraitFrameImg] = await Promise.all([
     bgSrc ? srcToImage(bgSrc) : null,
-    fgSrc ? srcToImage(fgSrc) : null
+    fgSrc ? srcToImage(fgSrc) : null,
+    portraitFrameSrc ? srcToImage(portraitFrameSrc).catch(() => null) : null
   ]);
   preloadBackgroundVariants();
   preloadForegroundVariants();
@@ -1680,10 +1741,80 @@ async function copyBackgroundLink(id){
 }
 
 function syncSlotInputs(){
+  template.personSlot = normalizePersonSlot(template.personSlot, template.canvas);
   $("slotX").value = template.personSlot.x;
   $("slotY").value = template.personSlot.y;
   $("slotW").value = template.personSlot.width;
   $("slotH").value = template.personSlot.height;
+  const circle = template.personSlot.cropCircle;
+  if($("cropCenterX")) $("cropCenterX").value = Math.round(circle.centerX);
+  if($("cropCenterY")) $("cropCenterY").value = Math.round(circle.centerY);
+  if($("cropRadius")) $("cropRadius").value = Math.round(circle.radius);
+  syncCircleCropUI();
+}
+
+function isCircleCropEnabled(){
+  return template.personSlot?.cropMode !== "none";
+}
+
+function getCircleCrop(){
+  template.personSlot = normalizePersonSlot(template.personSlot, template.canvas);
+  return template.personSlot.cropCircle;
+}
+
+function syncCircleCropUI(){
+  const enabled = isCircleCropEnabled();
+  const button = $("btnCircleCrop");
+  if(button){
+    button.classList.toggle("active", enabled);
+    button.setAttribute("aria-pressed", String(enabled));
+    const state = button.querySelector("[data-crop-state]");
+    if(state) state.textContent = enabled ? "ĐANG BẬT" : "ĐANG TẮT";
+  }
+  if($("circleCropEnabled")) $("circleCropEnabled").checked = enabled;
+  ["cropCenterX","cropCenterY","cropRadius"].forEach(id => {
+    if($(id)) $(id).disabled = !enabled;
+  });
+}
+
+function setCircleCropEnabled(enabled, { fit = true } = {}){
+  template.personSlot = normalizePersonSlot(template.personSlot, template.canvas);
+  template.personSlot.cropMode = enabled ? "circle" : "none";
+  syncActiveVariantLayout();
+  syncCircleCropUI();
+  if(personImg && fit) autoFitPerson();
+  render();
+  setRemoveBgStatus(enabled
+    ? "Cắt tròn đang bật: ảnh gốc được cắt trực tiếp theo vòng lá, không cần xóa nền AI."
+    : "Cắt tròn đang tắt: ảnh hiển thị theo vùng avatar thông thường.");
+  showMobileToast(enabled ? "Cắt tròn theo vòng lá: Bật" : "Cắt tròn theo vòng lá: Tắt");
+}
+
+function updateCircleCropFromInputs(){
+  template.personSlot = normalizePersonSlot(template.personSlot, template.canvas);
+  const circle = template.personSlot.cropCircle;
+  circle.centerX = clamp(Number($("cropCenterX")?.value || circle.centerX), 0, canvas.width);
+  circle.centerY = clamp(Number($("cropCenterY")?.value || circle.centerY), 0, canvas.height);
+  circle.radius = clamp(Number($("cropRadius")?.value || circle.radius), 80, Math.max(canvas.width, canvas.height));
+  syncActiveVariantLayout();
+  render();
+}
+
+function resetCircleCropFromSlot(){
+  const slot = template.personSlot;
+  const overlaySrc = slot.cropCircle?.overlaySrc || DEFAULT_TEMPLATE.personSlot.cropCircle.overlaySrc;
+  slot.cropCircle = {
+    centerX: DEFAULT_TEMPLATE.personSlot.cropCircle.centerX * (canvas.width / DEFAULT_TEMPLATE.canvas.width),
+    centerY: DEFAULT_TEMPLATE.personSlot.cropCircle.centerY * (canvas.height / DEFAULT_TEMPLATE.canvas.height),
+    radius: DEFAULT_TEMPLATE.personSlot.cropCircle.radius * (canvas.width / DEFAULT_TEMPLATE.canvas.width),
+    overlaySrc
+  };
+  slot.cropMode = "circle";
+  syncSlotInputs();
+  syncActiveVariantLayout();
+  if(personImg) autoFitPerson();
+  render();
+  showMobileToast("Đã khớp lại vòng lá mặc định");
 }
 
 function syncAdminTextCards(){
@@ -1863,15 +1994,24 @@ function drawPoster(){
 
   if(personImg){
     const drawable = getProcessedPersonDrawable();
-    const slotBottom = template.personSlot.y + template.personSlot.height;
     ctx.save();
     ctx.beginPath();
-    ctx.rect(0, 0, canvas.width, slotBottom);
+    if(isCircleCropEnabled()){
+      const circle = getCircleCrop();
+      ctx.arc(circle.centerX, circle.centerY, circle.radius, 0, Math.PI * 2);
+    }else{
+      const slotBottom = template.personSlot.y + template.personSlot.height;
+      ctx.rect(0, 0, canvas.width, slotBottom);
+    }
     ctx.clip();
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(drawable, person.x, person.y, drawable.width * person.scale, drawable.height * person.scale);
     ctx.restore();
+  }
+
+  if(personImg && isCircleCropEnabled() && portraitFrameImg){
+    ctx.drawImage(portraitFrameImg, 0, 0, canvas.width, canvas.height);
   }
 
   if(fgImg){
@@ -2054,6 +2194,36 @@ function drawForegroundTransformGuide(){
 
 function drawPersonSlotGuide(){
   const s = template.personSlot;
+  if(isCircleCropEnabled()){
+    const circle = getCircleCrop();
+    const handleX = circle.centerX + circle.radius * Math.SQRT1_2;
+    const handleY = circle.centerY + circle.radius * Math.SQRT1_2;
+    ctx.save();
+    ctx.setLineDash([12, 8]);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "rgba(106,168,255,.98)";
+    ctx.fillStyle = "rgba(106,168,255,.10)";
+    ctx.beginPath();
+    ctx.arc(circle.centerX, circle.centerY, circle.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(7,11,20,.78)";
+    roundRect(ctx, circle.centerX - 105, circle.centerY - circle.radius - 42, 210, 34, 15);
+    ctx.fill();
+    ctx.fillStyle = "#b9d6ff";
+    ctx.font = "800 18px Inter, Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("CROP TRÒN · ADMIN", circle.centerX, circle.centerY - circle.radius - 25);
+    ctx.fillStyle = "rgba(106,168,255,.98)";
+    ctx.fillRect(handleX - SLOT_HANDLE_SIZE / 2, handleY - SLOT_HANDLE_SIZE / 2, SLOT_HANDLE_SIZE, SLOT_HANDLE_SIZE);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(handleX - SLOT_HANDLE_SIZE / 2, handleY - SLOT_HANDLE_SIZE / 2, SLOT_HANDLE_SIZE, SLOT_HANDLE_SIZE);
+    ctx.restore();
+    return;
+  }
   ctx.save();
   ctx.setLineDash([12, 8]);
   ctx.lineWidth = 3;
@@ -2077,6 +2247,34 @@ function drawPersonSlotGuide(){
 
 function drawPersonTransformGuide(){
   if(!personImg) return;
+  if(isCircleCropEnabled()){
+    const circle = getCircleCrop();
+    ctx.save();
+    ctx.setLineDash([12, 9]);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "rgba(255,216,115,.96)";
+    ctx.beginPath();
+    ctx.arc(circle.centerX, circle.centerY, circle.radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const label = "Ảnh được cắt tròn · kéo/chụm để căn";
+    ctx.font = "800 19px Inter, Arial, sans-serif";
+    const labelW = Math.min(ctx.measureText(label).width + 28, canvas.width - 36);
+    const labelX = clamp(circle.centerX - labelW / 2, 18, canvas.width - labelW - 18);
+    const labelY = clamp(circle.centerY - circle.radius - 48, 18, canvas.height - 60);
+    ctx.fillStyle = "rgba(0,0,0,.66)";
+    roundRect(ctx, labelX, labelY, labelW, 38, 18);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,216,115,.78)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = "#ffe49a";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, labelX + labelW / 2, labelY + 20);
+    ctx.restore();
+    return;
+  }
   const b = person.bounds || { x:0, y:0, width:personImg.width, height:personImg.height };
   const x = person.x + b.x * person.scale;
   const y = person.y + b.y * person.scale;
@@ -2151,10 +2349,19 @@ function autoFitPerson(){
   const slot = template.personSlot;
   const b = person.bounds || getAlphaBounds(personImg);
   person.bounds = b;
-  const scale = Math.min(slot.width / b.width, slot.height / b.height) * 1.06;
-  person.scale = clamp(scale, 0.2, 3);
-  person.x = slot.x + slot.width / 2 - (b.x + b.width / 2) * person.scale;
-  person.y = slot.y + slot.height - (b.y + b.height) * person.scale;
+  if(isCircleCropEnabled()){
+    const circle = getCircleCrop();
+    const diameter = circle.radius * 2;
+    const scale = Math.max(diameter / Math.max(1, b.width), diameter / Math.max(1, b.height)) * 1.02;
+    person.scale = clamp(scale, 0.2, 3);
+    person.x = circle.centerX - (b.x + b.width / 2) * person.scale;
+    person.y = circle.centerY - (b.y + b.height / 2) * person.scale;
+  }else{
+    const scale = Math.min(slot.width / b.width, slot.height / b.height) * 1.06;
+    person.scale = clamp(scale, 0.2, 3);
+    person.x = slot.x + slot.width / 2 - (b.x + b.width / 2) * person.scale;
+    person.y = slot.y + slot.height - (b.y + b.height) * person.scale;
+  }
   $("scaleRange").value = person.scale;
 }
 
@@ -2642,12 +2849,14 @@ function pointerDown(e){
     const slotHit = hitPersonSlot(p.x, p.y);
     if(slotHit === "resize"){
       resizingSlot = true;
-      dragStart = { x:p.x, y:p.y, slotX:template.personSlot.x, slotY:template.personSlot.y, slotW:template.personSlot.width, slotH:template.personSlot.height };
+      const circle = getCircleCrop();
+      dragStart = { x:p.x, y:p.y, slotX:template.personSlot.x, slotY:template.personSlot.y, slotW:template.personSlot.width, slotH:template.personSlot.height, cropX:circle.centerX, cropY:circle.centerY, cropRadius:circle.radius };
       return;
     }
     if(slotHit === "body"){
       draggingSlot = true;
-      dragStart = { x:p.x, y:p.y, slotX:template.personSlot.x, slotY:template.personSlot.y, slotW:template.personSlot.width, slotH:template.personSlot.height };
+      const circle = getCircleCrop();
+      dragStart = { x:p.x, y:p.y, slotX:template.personSlot.x, slotY:template.personSlot.y, slotW:template.personSlot.width, slotH:template.personSlot.height, cropX:circle.centerX, cropY:circle.centerY, cropRadius:circle.radius };
       return;
     }
   }
@@ -2728,8 +2937,14 @@ function pointerMove(e){
   }
 
   if(draggingSlot){
-    template.personSlot.x = Math.round(dragStart.slotX + (p.x - dragStart.x));
-    template.personSlot.y = Math.round(dragStart.slotY + (p.y - dragStart.y));
+    if(isCircleCropEnabled()){
+      const circle = getCircleCrop();
+      circle.centerX = clamp(Math.round(dragStart.cropX + (p.x - dragStart.x)), 0, canvas.width);
+      circle.centerY = clamp(Math.round(dragStart.cropY + (p.y - dragStart.y)), 0, canvas.height);
+    }else{
+      template.personSlot.x = Math.round(dragStart.slotX + (p.x - dragStart.x));
+      template.personSlot.y = Math.round(dragStart.slotY + (p.y - dragStart.y));
+    }
     syncSlotInputs();
     syncActiveVariantLayout();
     render();
@@ -2737,8 +2952,14 @@ function pointerMove(e){
   }
 
   if(resizingSlot){
-    template.personSlot.width = Math.max(120, Math.round(dragStart.slotW + (p.x - dragStart.x)));
-    template.personSlot.height = Math.max(120, Math.round(dragStart.slotH + (p.y - dragStart.y)));
+    if(isCircleCropEnabled()){
+      const circle = getCircleCrop();
+      const radialDelta = ((p.x - dragStart.x) + (p.y - dragStart.y)) / Math.SQRT2;
+      circle.radius = clamp(Math.round(dragStart.cropRadius + radialDelta), 80, Math.max(canvas.width, canvas.height));
+    }else{
+      template.personSlot.width = Math.max(120, Math.round(dragStart.slotW + (p.x - dragStart.x)));
+      template.personSlot.height = Math.max(120, Math.round(dragStart.slotH + (p.y - dragStart.y)));
+    }
     syncSlotInputs();
     syncActiveVariantLayout();
     render();
@@ -2820,6 +3041,10 @@ function distance(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
 
 function hitPersonImage(x, y){
   if(!personImg) return false;
+  if(isCircleCropEnabled()){
+    const circle = getCircleCrop();
+    return Math.hypot(x - circle.centerX, y - circle.centerY) <= circle.radius + 32;
+  }
   const b = person.bounds || { x:0, y:0, width:personImg.width, height:personImg.height };
   const left = person.x + b.x * person.scale;
   const top = person.y + b.y * person.scale;
@@ -2886,6 +3111,15 @@ function hitForegroundTransform(x, y){
 }
 
 function hitPersonSlot(x, y){
+  if(isCircleCropEnabled()){
+    const circle = getCircleCrop();
+    const handleX = circle.centerX + circle.radius * Math.SQRT1_2;
+    const handleY = circle.centerY + circle.radius * Math.SQRT1_2;
+    const handlePad = SLOT_HANDLE_SIZE * 1.25;
+    if(Math.abs(x - handleX) <= handlePad && Math.abs(y - handleY) <= handlePad) return "resize";
+    if(Math.hypot(x - circle.centerX, y - circle.centerY) <= circle.radius) return "body";
+    return null;
+  }
   const s = template.personSlot;
   const hx = s.x + s.width - SLOT_HANDLE_SIZE;
   const hy = s.y + s.height - SLOT_HANDLE_SIZE;

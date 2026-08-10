@@ -15,7 +15,14 @@
     "width": 560,
     "height": 650,
     "fitMode": "head_to_belly",
-    "bottomSafeY": 1070
+    "bottomSafeY": 1070,
+    "cropMode": "circle",
+    "cropCircle": {
+      "centerX": 608,
+      "centerY": 779,
+      "radius": 350,
+      "overlaySrc": "assets/unite-portrait-frame-overlay.png"
+    }
   },
   "textFields": [
     {
