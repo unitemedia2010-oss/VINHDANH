@@ -1,0 +1,149 @@
+{
+  "canvas": {
+    "width": 1229,
+    "height": 1536
+  },
+  "runtime": {
+    "format": "webp",
+    "colourSpace": "sRGB",
+    "quality": 88,
+    "method": 6,
+    "resize": "direct-lanczos"
+  },
+  "existingTheme": {
+    "id": "tinhhoa",
+    "label": "Tinh Hoa",
+    "background": "../unite-bg-clean.png",
+    "foreground": "../unite-foreground.png",
+    "portraitFrameOverlay": "../unite-portrait-frame-overlay.png",
+    "brandLogoBaked": true,
+    "brandLogoSrc": null
+  },
+  "brandLogoPlacement": {
+    "x": 414,
+    "y": 38,
+    "width": 400,
+    "height": 101,
+    "fit": "contain"
+  },
+  "themes": [
+    {
+      "id": "ruby-gold",
+      "label": "Ruby Gold",
+      "source": "background-ruby-gold-source.png",
+      "runtime": "background-ruby-gold.webp",
+      "palette": "red-gold",
+      "foreground": "../poster-palettes/red-gold-foreground.png",
+      "portraitFrameOverlay": "../poster-palettes/red-gold-portrait-frame-overlay.png",
+      "brandLogoSrc": "../unite-group-logo.png",
+      "sourceSha256": "6fa59413510c07aadb32e70616f59a2df21ffc094dc2050498013268b042d8d0",
+      "runtimeSha256": "d016cad10d24fc00ec1e3f75d5dd249e6001561ab96c324c00a0d29cf797829e",
+      "runtimeBytes": 146872
+    },
+    {
+      "id": "sapphire-silver",
+      "label": "Sapphire Silver",
+      "source": "background-sapphire-silver-source.png",
+      "runtime": "background-sapphire-silver.webp",
+      "palette": "blue-silver",
+      "foreground": "../poster-palettes/blue-silver-foreground.png",
+      "portraitFrameOverlay": "../poster-palettes/blue-silver-portrait-frame-overlay.png",
+      "brandLogoSrc": "../unite-group-logo.png",
+      "sourceSha256": "4529fc379f319dd1854889f6aac025e4cd7568c62f585752e843048d4eee98e0",
+      "runtimeSha256": "e5aaf12032b5b9b90a4b9eeead5a47d012d6d63d5eeaddf22dec1ede22140826",
+      "runtimeBytes": 97896
+    },
+    {
+      "id": "champagne-gold",
+      "label": "Champagne Gold",
+      "source": "background-champagne-gold-source.png",
+      "runtime": "background-champagne-gold.webp",
+      "palette": "champagne-gold",
+      "foreground": "../poster-palettes/champagne-gold-foreground.png",
+      "portraitFrameOverlay": "../poster-palettes/champagne-gold-portrait-frame-overlay.png",
+      "brandLogoSrc": "../unite-group-logo.png",
+      "sourceSha256": "f6d2b93a2d2f6140cf6701454645fa052af90a8eeadb5499ba4699ada6ea3f7a",
+      "runtimeSha256": "ba7067e30fc470327ad0c68386ecad45ba8edb979d92e089f3496a8ab10c6d0d",
+      "runtimeBytes": 118258
+    },
+    {
+      "id": "amber-orange",
+      "label": "Amber Orange",
+      "source": "background-amber-orange-source.png",
+      "runtime": "background-amber-orange.webp",
+      "palette": "amber-orange",
+      "foreground": "../poster-palettes/amber-orange-foreground.png",
+      "portraitFrameOverlay": "../poster-palettes/amber-orange-portrait-frame-overlay.png",
+      "brandLogoSrc": "../unite-group-logo.png",
+      "sourceSha256": "b3ef962e465a4feb93eebc23639cc228b82548abaa6df1b9d9f467a80c14fe57",
+      "runtimeSha256": "68cacc06531f6b8c1267fabaa6a6a711d842279f2927729a9a735211089dbf81",
+      "runtimeBytes": 128610
+    },
+    {
+      "id": "obsidian-gold",
+      "label": "Obsidian Gold",
+      "source": "background-obsidian-gold-source.png",
+      "runtime": "background-obsidian-gold.webp",
+      "palette": "black-gold",
+      "foreground": "../poster-palettes/black-gold-foreground.png",
+      "portraitFrameOverlay": "../poster-palettes/black-gold-portrait-frame-overlay.png",
+      "brandLogoSrc": "../unite-group-logo.png",
+      "sourceSha256": "f837b1c706b61e8a79a8c7c17e3537421f6164c6e33a9d1496e2d1916df3b7ac",
+      "runtimeSha256": "2264a91f77296a2d760f793510154b0cbb3ceed4f91e7251ba857307c28e2c81",
+      "runtimeBytes": 78556
+    },
+    {
+      "id": "platinum-silver",
+      "label": "Platinum Silver",
+      "source": "background-platinum-silver-source.png",
+      "runtime": "background-platinum-silver.webp",
+      "palette": "platinum-silver",
+      "foreground": "../poster-palettes/platinum-silver-foreground.png",
+      "portraitFrameOverlay": "../poster-palettes/platinum-silver-portrait-frame-overlay.png",
+      "brandLogoSrc": "../unite-group-logo.png",
+      "sourceSha256": "fbc858795c1825be7197dda67653a35c82184a80e75ecf7abd07ae8b5d0cbd94",
+      "runtimeSha256": "ed0416c2a247c2cd4d855012d22ba2a9f72154f7654fa80fd576d57deddde42b",
+      "runtimeBytes": 94052
+    },
+    {
+      "id": "crimson-silver",
+      "label": "Crimson Silver",
+      "source": "background-crimson-silver-source.png",
+      "runtime": "background-crimson-silver.webp",
+      "palette": "crimson-silver",
+      "foreground": "../poster-palettes/crimson-silver-foreground.png",
+      "portraitFrameOverlay": "../poster-palettes/crimson-silver-portrait-frame-overlay.png",
+      "brandLogoSrc": "../unite-group-logo.png",
+      "sourceSha256": "294ce6dc7d9ddf6382615a17b16b147c6459bcf076563f12f053fec8234d6176",
+      "runtimeSha256": "d409716d63c529baacd2dae2ba06fbacbd1aa4f24bd19e6f2d6ec2a4cbc6a342",
+      "runtimeBytes": 123108
+    },
+    {
+      "id": "midnight-blue-gold",
+      "label": "Midnight Blue Gold",
+      "source": "background-midnight-blue-gold-source.png",
+      "runtime": "background-midnight-blue-gold.webp",
+      "palette": "midnight-blue-gold",
+      "foreground": "../poster-palettes/midnight-blue-gold-foreground.png",
+      "portraitFrameOverlay": "../poster-palettes/midnight-blue-gold-portrait-frame-overlay.png",
+      "brandLogoSrc": "../unite-group-logo.png",
+      "sourceSha256": "25dc184815df7152824f05623675e7b63e880d1296ceeae5ff7a9efce6c77c1c",
+      "runtimeSha256": "0b9232ab8a3a0fa4544812425cf6bc7c24e0c710e861bc304a3a1b8e627b1239",
+      "runtimeBytes": 89610
+    },
+    {
+      "id": "solar-gold",
+      "label": "Solar Gold",
+      "source": "background-solar-gold-source.png",
+      "runtime": "background-solar-gold.webp",
+      "palette": "black-gold",
+      "foreground": "../poster-palettes/black-gold-foreground.png",
+      "portraitFrameOverlay": "../poster-palettes/black-gold-portrait-frame-overlay.png",
+      "brandLogoSrc": "../unite-group-logo.png",
+      "sourceSha256": "3ad72630533ccfb7d5326abb13eefb016e9d8b4673137e8165378b2a853e9077",
+      "runtimeSha256": "27dd44e99bc1851b3f338ff846e65153d60b9afe713e7096e7a7ac4ef401e0f9",
+      "runtimeBytes": 105978
+    }
+  ],
+  "preview": "theme-contact-sheet.png"
+}

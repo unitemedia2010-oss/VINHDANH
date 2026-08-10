@@ -20,18 +20,28 @@ const DEFAULT_TEMPLATE = {
     foreground: "assets/unite-foreground.png"
   },
   backgroundVariants: [
-    { id: "tinhhoa", label: "TINH HOA", src: "assets/unite-bg-clean.png", isDefault: true },
-    { id: "kitai", label: "KÌ TÀI", src: "assets/unite-bg.png" },
-    { id: "tienphong", label: "TIÊN PHONG", src: "assets/unite-bg-clean.png" },
-    { id: "khaipha", label: "KHAI PHÁ", src: "assets/unite-bg-clean.png" },
-    { id: "bucpha", label: "BỨC PHÁ", src: "assets/unite-bg-clean.png" }
+    { id: "tinhhoa", label: "TINH HOA", src: "assets/unite-bg-clean.png", frameSrc: "assets/poster-palettes/black-gold-portrait-frame-overlay.png", brandLogoSrc: "", isDefault: true },
+    { id: "kitai", label: "KÌ TÀI", src: "assets/poster-themes/background-champagne-gold.webp", frameSrc: "assets/poster-palettes/champagne-gold-portrait-frame-overlay.png", brandLogoSrc: "assets/unite-group-logo.png" },
+    { id: "tienphong", label: "TIÊN PHONG", src: "assets/poster-themes/background-sapphire-silver.webp", frameSrc: "assets/poster-palettes/blue-silver-portrait-frame-overlay.png", brandLogoSrc: "assets/unite-group-logo.png" },
+    { id: "khaipha", label: "KHAI PHÁ", src: "assets/poster-themes/background-amber-orange.webp", frameSrc: "assets/poster-palettes/amber-orange-portrait-frame-overlay.png", brandLogoSrc: "assets/unite-group-logo.png" },
+    { id: "bucpha", label: "BỨC PHÁ", src: "assets/poster-themes/background-obsidian-gold.webp", frameSrc: "assets/poster-palettes/black-gold-portrait-frame-overlay.png", brandLogoSrc: "assets/unite-group-logo.png" },
+    { id: "hoanggia", label: "HOÀNG GIA", src: "assets/poster-themes/background-ruby-gold.webp", frameSrc: "assets/poster-palettes/red-gold-portrait-frame-overlay.png", brandLogoSrc: "assets/unite-group-logo.png" },
+    { id: "kimcuong", label: "KIM CƯƠNG", src: "assets/poster-themes/background-platinum-silver.webp", frameSrc: "assets/poster-palettes/platinum-silver-portrait-frame-overlay.png", brandLogoSrc: "assets/unite-group-logo.png" },
+    { id: "banlinh", label: "BẢN LĨNH", src: "assets/poster-themes/background-crimson-silver.webp", frameSrc: "assets/poster-palettes/crimson-silver-portrait-frame-overlay.png", brandLogoSrc: "assets/unite-group-logo.png" },
+    { id: "dinhcao", label: "ĐỈNH CAO", src: "assets/poster-themes/background-midnight-blue-gold.webp", frameSrc: "assets/poster-palettes/midnight-blue-gold-portrait-frame-overlay.png", brandLogoSrc: "assets/unite-group-logo.png" },
+    { id: "haoquang", label: "HÀO QUANG", src: "assets/poster-themes/background-solar-gold.webp", frameSrc: "assets/poster-palettes/champagne-gold-portrait-frame-overlay.png", brandLogoSrc: "assets/unite-group-logo.png" }
   ],
   foregroundVariants: [
-    { id: "tinhhoa", label: "TINH HOA", src: "assets/unite-foreground.png", isDefault: true },
-    { id: "kitai", label: "KÌ TÀI", src: "assets/unite-foreground.png" },
-    { id: "tienphong", label: "TIÊN PHONG", src: "assets/unite-foreground.png" },
-    { id: "khaipha", label: "KHAI PHÁ", src: "assets/unite-foreground.png" },
-    { id: "bucpha", label: "BỨC PHÁ", src: "assets/unite-foreground.png" }
+    { id: "tinhhoa", label: "TINH HOA", src: "assets/poster-palettes/black-gold-foreground.png", isDefault: true },
+    { id: "kitai", label: "KÌ TÀI", src: "assets/poster-palettes/champagne-gold-foreground.png" },
+    { id: "tienphong", label: "TIÊN PHONG", src: "assets/poster-palettes/blue-silver-foreground.png" },
+    { id: "khaipha", label: "KHAI PHÁ", src: "assets/poster-palettes/amber-orange-foreground.png" },
+    { id: "bucpha", label: "BỨC PHÁ", src: "assets/poster-palettes/black-gold-foreground.png" },
+    { id: "hoanggia", label: "HOÀNG GIA", src: "assets/poster-palettes/red-gold-foreground.png" },
+    { id: "kimcuong", label: "KIM CƯƠNG", src: "assets/poster-palettes/platinum-silver-foreground.png" },
+    { id: "banlinh", label: "BẢN LĨNH", src: "assets/poster-palettes/crimson-silver-foreground.png" },
+    { id: "dinhcao", label: "ĐỈNH CAO", src: "assets/poster-palettes/midnight-blue-gold-foreground.png" },
+    { id: "haoquang", label: "HÀO QUANG", src: "assets/poster-palettes/champagne-gold-foreground.png" }
   ],
   fonts: [],
   personSlot: {
@@ -175,7 +185,18 @@ const DEFAULT_TEMPLATE = {
 const SNAP_THRESHOLD = 14;
 const SLOT_HANDLE_SIZE = 20;
 const FOREGROUND_HANDLE_SIZE = 26;
-const BACKGROUND_SLOT_LIMIT = 5;
+const BACKGROUND_SLOT_LIMIT = 10;
+const LEGACY_BUILTIN_BACKGROUND_SOURCES = new Set([
+  "assets/unite-bg-clean.png",
+  "assets/unite-bg.png"
+]);
+const LEGACY_BUILTIN_FOREGROUND_SOURCES = new Set([
+  "assets/unite-foreground.png"
+]);
+const LEGACY_BUILTIN_FRAME_SOURCES = new Set([
+  "assets/unite-portrait-frame.png",
+  "assets/unite-portrait-frame-overlay.png"
+]);
 const REMOVE_BG_MODULE_URL = "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
 const MAX_PERSON_EDGE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? 1800 : 2400;
 const MAX_REMOVE_BG_EDGE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? 1280 : 1600;
@@ -189,37 +210,72 @@ const VARIANT_META = {
   tinhhoa: {
     label: "TINH HOA",
     clusterTitle: "CỤM TINH HOA",
-    accent: "#df3b2f",
-    accentSoft: "#ffd6d1",
-    accentDeep: "#8f120c"
+    accent: "#f0bc35",
+    accentSoft: "#fff1a1",
+    accentDeep: "#a96005"
   },
   kitai: {
     label: "KÌ TÀI",
     clusterTitle: "CỤM KÌ TÀI",
-    accent: "#e0b13f",
-    accentSoft: "#fff1bd",
-    accentDeep: "#9b6b05"
+    accent: "#f1d47f",
+    accentSoft: "#fff6cf",
+    accentDeep: "#8c7353"
   },
   tienphong: {
     label: "TIÊN PHONG",
     clusterTitle: "CỤM TIÊN PHONG",
-    accent: "#3d7cff",
-    accentSoft: "#dce8ff",
-    accentDeep: "#12338d"
+    accent: "#d5e1ed",
+    accentSoft: "#ffffff",
+    accentDeep: "#3375ad"
   },
   khaipha: {
     label: "KHAI PHÁ",
     clusterTitle: "CỤM KHAI PHÁ",
-    accent: "#7b46ff",
-    accentSoft: "#eadfff",
-    accentDeep: "#421998"
+    accent: "#f59f1b",
+    accentSoft: "#ffe5a1",
+    accentDeep: "#bd4f00"
   },
   bucpha: {
     label: "BỨC PHÁ",
     clusterTitle: "CỤM BỨC PHÁ",
-    accent: "#47b83e",
-    accentSoft: "#daf6d7",
-    accentDeep: "#1d7420"
+    accent: "#f0bc35",
+    accentSoft: "#fff1a1",
+    accentDeep: "#a96005"
+  },
+  hoanggia: {
+    label: "HOÀNG GIA",
+    clusterTitle: "CỤM HOÀNG GIA",
+    accent: "#f0bc35",
+    accentSoft: "#fff1a1",
+    accentDeep: "#bd2520"
+  },
+  kimcuong: {
+    label: "KIM CƯƠNG",
+    clusterTitle: "CỤM KIM CƯƠNG",
+    accent: "#dce5ee",
+    accentSoft: "#ffffff",
+    accentDeep: "#69737f"
+  },
+  banlinh: {
+    label: "BẢN LĨNH",
+    clusterTitle: "CỤM BẢN LĨNH",
+    accent: "#d9e2ec",
+    accentSoft: "#ffffff",
+    accentDeep: "#c5233e"
+  },
+  dinhcao: {
+    label: "ĐỈNH CAO",
+    clusterTitle: "CỤM ĐỈNH CAO",
+    accent: "#f0bc35",
+    accentSoft: "#fff1a1",
+    accentDeep: "#174977"
+  },
+  haoquang: {
+    label: "HÀO QUANG",
+    clusterTitle: "CỤM HÀO QUANG",
+    accent: "#f1d47f",
+    accentSoft: "#fff6cf",
+    accentDeep: "#8c7353"
   }
 };
 const CORE_TEXT_KEYS = ["awardTitle", "month", "name", "team", "subline", "campaignLine"];
@@ -228,6 +284,7 @@ let template = structuredClone(DEFAULT_TEMPLATE);
 let bgImg = null;
 let fgImg = null;
 let portraitFrameImg = null;
+let brandLogoImg = null;
 let personImg = null;
 let personSourceFile = null;
 let bgSourceFile = null;
@@ -392,19 +449,40 @@ function normalizePersonSlot(slot, canvasDef = template.canvas){
   };
 }
 
+function normalizeAssetSource(value){
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function normalizeBackgroundVariants(t){
   const baseBackground = t.layers?.background || DEFAULT_TEMPLATE.layers.background;
   const existing = Array.isArray(t.backgroundVariants) ? t.backgroundVariants : [];
   const defaults = DEFAULT_TEMPLATE.backgroundVariants.map(item => ({ ...item }));
+  const defaultsById = new Map(defaults.map(item => [item.id, item]));
   const merged = existing.length ? existing : defaults;
 
   t.backgroundVariants = merged.slice(0, BACKGROUND_SLOT_LIMIT).map((item, index) => {
-    const fallback = defaults[index] || defaults[0];
+    const itemId = normalizeBackgroundId(item?.id || defaults[index]?.id || `bg-${index + 1}`);
+    const fallback = defaultsById.get(itemId) || defaults[index] || defaults[0];
+    const rawSrc = normalizeAssetSource(item?.src || item?.url || (index === 0 ? baseBackground : fallback.src || baseBackground));
+    const refreshLegacyBuiltIn = !item?.storagePath && LEGACY_BUILTIN_BACKGROUND_SOURCES.has(rawSrc);
+    const legacyFrameSrc = normalizeAssetSource(
+      item?.frameSrc
+      || item?.layout?.personSlot?.cropCircle?.overlaySrc
+      || t.personSlot?.cropCircle?.overlaySrc
+    );
+    const frameSrc = refreshLegacyBuiltIn && (!legacyFrameSrc || LEGACY_BUILTIN_FRAME_SOURCES.has(legacyFrameSrc))
+      ? fallback.frameSrc
+      : legacyFrameSrc;
+    const brandLogoSrc = Object.prototype.hasOwnProperty.call(item || {}, "brandLogoSrc")
+      ? normalizeAssetSource(item.brandLogoSrc)
+      : (refreshLegacyBuiltIn ? normalizeAssetSource(fallback.brandLogoSrc) : "");
     return {
       ...structuredClone(item || {}),
-      id: normalizeBackgroundId(item?.id || fallback.id || `bg-${index + 1}`),
+      id: itemId,
       label: item?.label || fallback.label || `Nền ${index + 1}`,
-      src: item?.src || item?.url || (index === 0 ? baseBackground : fallback.src || baseBackground),
+      src: refreshLegacyBuiltIn ? fallback.src : rawSrc,
+      frameSrc,
+      brandLogoSrc,
       storagePath: item?.storagePath || null,
       isDefault: Boolean(item?.isDefault || index === 0),
       // QUAN TRỌNG: giữ nguyên layout riêng của từng màu khi nạp lại từ Supabase.
@@ -421,6 +499,8 @@ function normalizeBackgroundVariants(t){
       id: normalizeBackgroundId(fallback.id || `bg-${index + 1}`),
       label: fallback.label || `Nền ${index + 1}`,
       src: fallback.src || baseBackground,
+      frameSrc: fallback.frameSrc || "",
+      brandLogoSrc: fallback.brandLogoSrc || "",
       storagePath: null,
       isDefault: index === 0,
       layout: null
@@ -445,15 +525,19 @@ function normalizeForegroundVariants(t){
   const baseForeground = t.layers?.foreground || DEFAULT_TEMPLATE.layers.foreground;
   const existing = Array.isArray(t.foregroundVariants) ? t.foregroundVariants : [];
   const defaults = DEFAULT_TEMPLATE.foregroundVariants.map(item => ({ ...item }));
+  const defaultsById = new Map(defaults.map(item => [item.id, item]));
   const merged = existing.length ? existing : defaults;
 
   t.foregroundVariants = merged.slice(0, BACKGROUND_SLOT_LIMIT).map((item, index) => {
-    const fallback = defaults[index] || defaults[0];
+    const itemId = normalizeBackgroundId(item?.id || defaults[index]?.id || `fg-${index + 1}`);
+    const fallback = defaultsById.get(itemId) || defaults[index] || defaults[0];
+    const rawSrc = normalizeAssetSource(item?.src || item?.url || baseForeground);
+    const refreshLegacyBuiltIn = !item?.storagePath && LEGACY_BUILTIN_FOREGROUND_SOURCES.has(rawSrc);
     return {
       ...structuredClone(item || {}),
-      id: normalizeBackgroundId(item?.id || fallback.id || `fg-${index + 1}`),
+      id: itemId,
       label: item?.label || fallback.label || `Bản trên ${index + 1}`,
-      src: item?.src || item?.url || baseForeground,
+      src: refreshLegacyBuiltIn ? fallback.src : rawSrc,
       storagePath: item?.storagePath || null,
       isDefault: Boolean(item?.isDefault || index === 0),
       transform: normalizeForegroundTransform(item?.transform, t.canvas)
@@ -1181,13 +1265,15 @@ function resetDragAndSnap(){
 async function loadTemplateImages(){
   const bgSrc = getActiveBackgroundSrc();
   const fgSrc = getActiveForegroundSrc();
-  const portraitFrameSrc = getCircleCrop().overlaySrc;
+  const portraitFrameSrc = getActivePortraitFrameSrc();
+  const brandLogoSrc = getActiveBrandLogoSrc();
   template.layers.background = bgSrc || template.layers.background;
   template.layers.foreground = fgSrc || template.layers.foreground;
-  [bgImg, fgImg, portraitFrameImg] = await Promise.all([
+  [bgImg, fgImg, portraitFrameImg, brandLogoImg] = await Promise.all([
     bgSrc ? srcToImage(bgSrc) : null,
     fgSrc ? srcToImage(fgSrc) : null,
-    portraitFrameSrc ? srcToImage(portraitFrameSrc).catch(() => null) : null
+    portraitFrameSrc ? srcToImage(portraitFrameSrc).catch(() => null) : null,
+    brandLogoSrc ? srcToImage(brandLogoSrc).catch(() => null) : null
   ]);
   preloadBackgroundVariants();
   preloadForegroundVariants();
@@ -1196,13 +1282,15 @@ async function loadTemplateImages(){
 async function loadActiveBackgroundImage(){
   const bgSrc = getActiveBackgroundSrc();
   const fgSrc = getActiveForegroundSrc();
-  const portraitFrameSrc = getCircleCrop().overlaySrc;
+  const portraitFrameSrc = getActivePortraitFrameSrc();
+  const brandLogoSrc = getActiveBrandLogoSrc();
   template.layers.background = bgSrc || template.layers.background;
   template.layers.foreground = fgSrc || template.layers.foreground;
-  [bgImg, fgImg, portraitFrameImg] = await Promise.all([
+  [bgImg, fgImg, portraitFrameImg, brandLogoImg] = await Promise.all([
     bgSrc ? srcToImage(bgSrc) : null,
     fgSrc ? srcToImage(fgSrc) : null,
-    portraitFrameSrc ? srcToImage(portraitFrameSrc).catch(() => null) : null
+    portraitFrameSrc ? srcToImage(portraitFrameSrc).catch(() => null) : null,
+    brandLogoSrc ? srcToImage(brandLogoSrc).catch(() => null) : null
   ]);
   preloadBackgroundVariants();
   preloadForegroundVariants();
@@ -1596,6 +1684,14 @@ function getActiveBackgroundSrc(){
   return getActiveBackgroundVariant()?.src || template.layers?.background || "";
 }
 
+function getActivePortraitFrameSrc(){
+  return normalizeAssetSource(getActiveBackgroundVariant()?.frameSrc) || normalizeAssetSource(getCircleCrop().overlaySrc);
+}
+
+function getActiveBrandLogoSrc(){
+  return normalizeAssetSource(getActiveBackgroundVariant()?.brandLogoSrc);
+}
+
 function getForegroundVariants(sourceTemplate = template){
   return Array.isArray(sourceTemplate.foregroundVariants) ? sourceTemplate.foregroundVariants.slice(0, BACKGROUND_SLOT_LIMIT) : [];
 }
@@ -1716,7 +1812,9 @@ function getForegroundVariantFilePayload(){
 
 function buildBackgroundLink(id){
   const bgId = normalizeBackgroundId(id);
-  const url = new URL(`${bgId}.html`, window.location.href);
+  const url = new URL("index.html", window.location.href);
+  url.searchParams.set("bg", bgId);
+  url.searchParams.set("page", bgId);
   if(template.templateId) url.searchParams.set("template", template.templateId);
   return url.href;
 }
@@ -2010,13 +2108,19 @@ function drawPoster(){
     ctx.restore();
   }
 
-  if(personImg && isCircleCropEnabled() && portraitFrameImg){
+  if(isCircleCropEnabled() && portraitFrameImg){
     ctx.drawImage(portraitFrameImg, 0, 0, canvas.width, canvas.height);
   }
 
   if(fgImg){
     const foreground = getActiveForegroundTransform();
     ctx.drawImage(fgImg, foreground.x, foreground.y, foreground.width, foreground.height);
+  }
+  if(brandLogoImg){
+    const logoWidth = 400;
+    const logoHeight = logoWidth * (brandLogoImg.height / brandLogoImg.width || 0.252);
+    const logoX = (canvas.width - logoWidth) / 2;
+    ctx.drawImage(brandLogoImg, logoX, 38, logoWidth, logoHeight);
   }
   drawDynamicText();
   if(activeTab === "leader" && leaderGuidesVisible && !exportCleanMode) drawLeaderTextGuides();
@@ -3359,15 +3463,28 @@ function scheduleIdleTask(fn, timeout = 800){
   if("requestIdleCallback" in window) window.requestIdleCallback(fn, { timeout });
   else setTimeout(fn, Math.min(timeout, 1000));
 }
+function getNeighborBackgroundIds(){
+  const variants = getBackgroundVariants();
+  if(variants.length <= 1) return new Set();
+  const activeIndex = Math.max(0, variants.findIndex(item => item.id === selectedBackgroundId));
+  return new Set([
+    variants[(activeIndex - 1 + variants.length) % variants.length]?.id,
+    variants[(activeIndex + 1) % variants.length]?.id
+  ].filter(Boolean));
+}
 function preloadBackgroundVariants(){
+  const neighborIds = getNeighborBackgroundIds();
   getBackgroundVariants()
-    .map(item => item.src)
+    .filter(item => neighborIds.has(item.id))
+    .flatMap(item => [item.src, item.frameSrc, item.brandLogoSrc])
     .filter(Boolean)
-    .filter(src => src !== getActiveBackgroundSrc())
+    .filter(src => src !== getActiveBackgroundSrc() && src !== getActivePortraitFrameSrc() && src !== getActiveBrandLogoSrc())
     .forEach(src => srcToImage(src, { priority:"low" }).catch(() => {}));
 }
 function preloadForegroundVariants(){
+  const neighborIds = getNeighborBackgroundIds();
   getForegroundVariants()
+    .filter(item => neighborIds.has(item.id))
     .map(item => item.src)
     .filter(Boolean)
     .filter(src => src !== getActiveForegroundSrc())
@@ -3396,9 +3513,12 @@ function getRouteOptions(){
 function resolveBackgroundAlias(id){
   const aliases = {
     "gold": "tinhhoa",
-    "black-gold": "kitai",
+    "black-gold": "bucpha",
     "blue": "tienphong",
-    "red": "khaipha",
+    "red": "hoanggia",
+    "orange": "khaipha",
+    "silver": "kimcuong",
+    "platinum": "kimcuong",
     "green": "bucpha"
   };
   return aliases[id] || id;
